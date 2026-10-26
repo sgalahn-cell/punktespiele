@@ -37,30 +37,40 @@ td.n{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
 .opt{padding:8px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;cursor:pointer;display:flex;justify-content:space-between;gap:8px}
 .opt.sel{border-color:var(--accent);background:rgba(245,179,1,.14);font-weight:700}
 .tag{font-size:.7rem;border:1px solid var(--line);border-radius:6px;padding:0 5px;margin-left:4px;color:var(--muted)}
+.coin{width:130px;height:130px;margin:16px auto;perspective:700px}
+.coin-in{position:relative;width:100%;height:100%;transform-style:preserve-3d}
+.cf{position:absolute;inset:0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.3rem;backface-visibility:hidden;-webkit-backface-visibility:hidden;border:6px solid #b8860b;box-shadow:inset 0 0 20px rgba(0,0,0,.25),0 4px 16px rgba(0,0,0,.4)}
+.cf.k{background:radial-gradient(circle at 30% 30%,#fff1a8,#f5b301);color:#5a3a00}
+.cf.z{background:radial-gradient(circle at 30% 30%,#e9e9f5,#9aa3c7);color:#2a2f4d;transform:rotateY(180deg)}
+.wag{font-size:.72rem;color:var(--muted);margin-left:6px;font-weight:400}
+.feed-i{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:.88rem}
+.win{color:#4ade80;font-weight:700}.loss{color:#f87171;font-weight:700}.even{color:var(--muted);font-weight:700}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
 </head>
 <body>
 <main>
 <h1>🎲 Punkte-Spiele</h1>
-<p class="sub">Farbwürfel und Glücksrad. Punkte bekommst du von einem Admin.</p>
+<p class="sub">Farbwürfel, Glücksrad und Münzwurf. Punkte bekommst du von einem Admin.<br>👥 <b id="cnt">–</b> Spieler angemeldet</p>
 <div id="app"><div class="card">Lade …</div></div>
 <div class="card"><div class="legend" id="legend"></div>
 <p class="muted" style="margin-bottom:0"><b>Farbwürfel:</b> Wähle eine Farbe und setze 500 bis 2000 Punkte. Kommt deine Farbe 1× vor, bekommst du das Doppelte deines Einsatzes zurück. Bei 2× bekommst du deinen Einsatz zurück. Bei 0×, 3× oder 4× ist der Einsatz verloren.</p>
-<p class="muted" style="margin-bottom:0"><b>Glücksrad:</b> Wähle Dark oder light und setze 500 bis 2000 Punkte. Landet das Rad auf deiner Farbe, bekommst du das Doppelte deines Einsatzes. Bei der anderen Farbe oder beim Stern ★ ist der Einsatz verloren. Du kannst auch auf den Stern ★ setzen: Landet das Rad dort, bekommst du das Dreifache deines Einsatzes.</p></div>
+<p class="muted" style="margin-bottom:0"><b>Glücksrad:</b> Wähle Dark oder light und setze 500 bis 2000 Punkte. Landet das Rad auf deiner Farbe, bekommst du das Doppelte deines Einsatzes. Bei der anderen Farbe oder beim Stern ★ ist der Einsatz verloren. Du kannst auch auf den Stern ★ setzen: Landet das Rad dort, bekommst du das Dreifache deines Einsatzes.</p>
+<p class="muted" style="margin-bottom:0"><b>Münzwurf:</b> Wähle Kopf oder Zahl und setze 500 bis 2000 Punkte. Trifft deine Seite (50 %), bekommst du das 1,9-fache deines Einsatzes zurück, sonst ist er verloren.</p></div>
 </main>
 <script>
-// ====== HIER DEINE SUPABASE-DATEN EINTRAGEN (siehe ANLEITUNG.md) ======
-var SUPABASE_URL = "https://xqijrymvymbhyuuocrmf.supabase.co";
-var SUPABASE_KEY = "sb_publishable_bwhr_aMkjdrUJmPNbeMdpQ_M8MV7k26";
-// =======================================================================
+// Die Supabase-Daten stehen in der Datei config.js (siehe ANLEITUNG.md)
+var cfg = window.APP_CONFIG || {};
+var SUPABASE_URL = cfg.url || "HIER_EINTRAGEN";
+var SUPABASE_KEY = cfg.key || "HIER_EINTRAGEN";
 
 (function(){
 var app=document.getElementById("app");
 function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function delay(ms){return new Promise(function(r){setTimeout(r,ms)})}
 if(SUPABASE_URL.indexOf("HIER")>=0||SUPABASE_KEY.indexOf("HIER")>=0){
-  app.innerHTML='<div class="card">Die Seite ist noch nicht eingerichtet. Trage oben in der Datei index.html die Supabase-Daten ein (siehe ANLEITUNG.md).</div>';return}
+  app.innerHTML='<div class="card">Die Seite ist noch nicht eingerichtet. Lege bei GitHub die Datei config.js mit deinen Supabase-Daten an (siehe ANLEITUNG.md).</div>';return}
 var sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 var COLORS=[["Rot","#e53935"],["Orange","#fb8c00"],["Gelb","#e0a800"],["Grün","#2e9e4f"],["Blau","#1e6fe0"],["Lila","#8e44ad"],["Pink","#d81b7a"]];
@@ -68,7 +78,7 @@ var SEGS=["D","L","D","S","L","D","L"];
 var MINS=500,MAXS=2000;
 document.getElementById("legend").innerHTML=COLORS.map(function(c){return '<span><span class="dot" style="background:'+c[1]+'"></span>'+c[0]+'</span>'}).join("");
 
-var st={user:null,me:null,list:[],err:"",game:"dice",pick:0,wpick:"D",stake:500,msg:"",wmsg:"",dice:null,wrot:0,rolling:false,osearch:"",osel:null,oamt:100};
+var st={user:null,me:null,list:[],feed:[],names:{},err:"",cpick:"K",crot:0,cmsg:"",game:"dice",pick:0,wpick:"D",stake:500,msg:"",wmsg:"",dice:null,wrot:0,rolling:false,osearch:"",osel:null,oamt:100};
 
 function diceHtml(v,roll){return '<div class="dice">'+[0,1,2,3].map(function(i){var x=v?v[i]:null;return '<div class="die'+(roll?' roll':'')+'" style="'+(x!==null?'background:'+COLORS[x][1]:'')+'">'+(x!==null?COLORS[x][0].charAt(0):'?')+'</div>'}).join("")+'</div>'}
 
@@ -99,11 +109,41 @@ function olist(){
   return h;
 }
 
+function fmt(n){return Number(n||0).toLocaleString("de-DE")}
+function setCount(n){var el=document.getElementById("cnt");if(el)el.textContent=n}
+async function loadCount(){var r=await sb.rpc("player_count");if(!r.error)setCount(r.data)}
+
 async function load(){
-  var r=await sb.from("profiles").select("id,name,balance,is_admin,is_owner,banned").order("balance",{ascending:false});
+  var rr=await Promise.all([
+    sb.from("profiles").select("id,name,balance,total_wagered,is_admin,is_owner,banned").order("balance",{ascending:false}),
+    sb.from("game_log").select("id,user_id,game,bet,stake,payout,created_at").order("created_at",{ascending:false}).limit(25)
+  ]);
+  var r=rr[0],f=rr[1];
   if(r.error){st.err=r.error.message;return}
   st.err="";st.list=r.data;
+  st.names={};r.data.forEach(function(p){st.names[p.id]=p.name});
   st.me=r.data.find(function(p){return p.id===st.user.id})||null;
+  if(!f.error)st.feed=f.data;
+  setCount(r.data.length);
+}
+
+function coinHtml(){
+  return '<div class="coin"><div class="coin-in" id="coin" style="transform:rotateY('+st.crot+'deg)"><div class="cf k">Kopf</div><div class="cf z">Zahl</div></div></div>';
+}
+
+function betLabel(g,b){
+  if(g==="dice")return COLORS[+b]?COLORS[+b][0]:"?";
+  if(g==="wheel")return {D:"Dark",L:"light",S:"Stern"}[b]||"?";
+  return {K:"Kopf",Z:"Zahl"}[b]||"?";
+}
+function feedHtml(){
+  if(!st.feed.length)return '<p class="muted">Noch keine Spiele gespielt.</p>';
+  var GL={dice:"Farbwürfel",wheel:"Glücksrad",coin:"Münzwurf"};
+  return st.feed.map(function(f){
+    var net=f.payout-f.stake,cls=net>0?"win":(net===0?"even":"loss");
+    var t=new Date(f.created_at).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+    return '<div class="feed-i"><span><b>'+esc(st.names[f.user_id]||"Spieler")+'</b> · '+esc(GL[f.game]||f.game)+' ('+esc(betLabel(f.game,f.bet))+') · Einsatz '+f.stake+'<br><span class="muted">'+t+' Uhr</span></span><span class="'+cls+'">'+(net>0?"+"+net:(net===0?"±0":net))+'</span></div>';
+  }).join("");
 }
 
 function stakeRow(mx){
@@ -125,22 +165,27 @@ function render(){
   h+='<div class="muted" style="margin-top:8px">Dein Punktestand</div><div class="bal">'+b+'</div>';
   if(me.banned)h+='<p class="msg">Du wurdest gesperrt.</p>';
   else if(b<MINS)h+='<p class="muted">Zum Spielen brauchst du mindestens '+MINS+' Punkte. Bitte einen Admin um Punkte.</p>';
-  h+='<div class="row" style="margin:10px 0 4px"><button class="tab'+(st.game==="dice"?'':' off')+'" data-act="tab" data-v="dice">🎲 Farbwürfel</button><button class="tab'+(st.game==="wheel"?'':' off')+'" data-act="tab" data-v="wheel">🎡 Glücksrad</button></div>';
+  h+='<div class="row" style="margin:10px 0 4px"><button class="tab'+(st.game==="dice"?'':' off')+'" data-act="tab" data-v="dice">🎲 Farbwürfel</button><button class="tab'+(st.game==="wheel"?'':' off')+'" data-act="tab" data-v="wheel">🎡 Glücksrad</button><button class="tab'+(st.game==="coin"?'':' off')+'" data-act="tab" data-v="coin">🪙 Münzwurf</button></div>';
 
   if(st.game==="dice"){
     h+='<div class="picker">'+COLORS.map(function(c,i){return '<button class="pc'+(i===st.pick?' sel':'')+'" data-act="pc" data-v="'+i+'" style="background:'+c[1]+'">'+c[0]+'</button>'}).join("")+'</div>';
     h+=stakeRow(mx);
     h+=diceHtml(st.dice,false)+'<div class="msg">'+esc(st.msg)+'</div><button data-act="roll"'+(canPlay?'':' disabled')+'>Würfeln auf '+COLORS[st.pick][0]+'</button></div>';
-  }else{
+  }else if(st.game==="wheel"){
     h+='<div class="picker"><button class="pc'+(st.wpick==="D"?' sel':'')+'" data-act="pw" data-v="D" style="background:#111;font-size:1rem">Dark</button><button class="pc'+(st.wpick==="L"?' sel':'')+'" data-act="pw" data-v="L" style="background:#f4f4f4;color:#111;font-size:1rem;border-color:'+(st.wpick==="L"?'var(--text)':'#bbb')+'">light</button><button class="pc'+(st.wpick==="S"?' sel':'')+'" data-act="pw" data-v="S" style="background:#111;color:#ffd54a;font-size:1rem">★ Stern (×3)</button></div>';
     h+=stakeRow(mx);
     h+=wheelHtml()+'<div class="msg">'+esc(st.wmsg)+'</div><button data-act="spin"'+(canPlay?'':' disabled')+'>Drehen auf '+(st.wpick==="D"?'Dark':(st.wpick==="L"?'light':'Stern'))+'</button></div>';
+  }else{
+    h+='<div class="picker"><button class="pc'+(st.cpick==="K"?' sel':'')+'" data-act="pk" data-v="K" style="background:#c98a00;font-size:1rem">Kopf</button><button class="pc'+(st.cpick==="Z"?' sel':'')+'" data-act="pk" data-v="Z" style="background:#5b6492;font-size:1rem">Zahl</button></div>';
+    h+=stakeRow(mx);
+    h+=coinHtml()+'<div class="msg">'+esc(st.cmsg)+'</div><button data-act="coin"'+(canPlay?'':' disabled')+'>Münze werfen auf '+(st.cpick==="K"?'Kopf':'Zahl')+'</button></div>';
   }
+  h+='<div class="card"><h2>📡 Live-Feed</h2>'+feedHtml()+'</div>';
 
   var top=st.list.filter(function(p){return !p.banned}).slice(0,50);
-  h+='<div class="card"><h2>Rangliste</h2><table>'+top.map(function(p){return '<tr class="'+(p.id===me.id?'me':'')+'"><td>'+esc(p.name)+(p.id===me.id?' (du)':'')+'</td><td class="n">'+p.balance+'</td></tr>'}).join("")+'</table></div>';
+  h+='<div class="card"><h2>Rangliste</h2><table>'+top.map(function(p){return '<tr class="'+(p.id===me.id?'me':'')+'"><td>'+esc(p.name)+(p.id===me.id?' (du)':'')+' <span class="wag">'+fmt(p.total_wagered)+' gesetzt</span></td><td class="n">'+p.balance+'</td></tr>'}).join("")+'</table></div>';
 
-  if(me.is_admin){
+  if(me.is_admin&&!me.banned){
     var sel=st.list.find(function(p){return p.id===st.osel})||null;
     if(!sel)st.osel=null;
     h+='<div class="card"><h2>Admin</h2><input id="osearch" type="search" placeholder="Spieler suchen …" value="'+esc(st.osearch)+'" style="width:100%;margin-bottom:8px"><div id="olist">'+olist()+'</div>';
@@ -148,7 +193,7 @@ function render(){
     h+='<div class="row"><input id="oamt" type="number" value="'+esc(st.oamt)+'"><button data-act="give"'+(sel?'':' disabled')+'>Punkte geben</button></div><p class="muted">Negative Zahl = Punkte abziehen.</p>';
     h+='<div class="row">';
     if(me.is_owner)h+='<button class="tab off" data-act="admin"'+(sel&&!sel.is_owner?'':' disabled')+'>'+(sel&&sel.is_admin?'Admin entfernen':'Zum Admin machen')+'</button>';
-    h+='<button class="tab off" data-act="ban"'+(sel&&!sel.is_owner?'':' disabled')+'>'+(sel&&sel.banned?'Entsperren':'Sperren')+'</button></div></div>';
+    h+='<button class="tab off" data-act="ban"'+(sel&&!sel.is_owner&&sel.id!==me.id&&(!sel.is_admin||me.is_owner)?'':' disabled')+'>'+(sel&&sel.banned?'Entsperren':'Sperren')+'</button></div></div>';
   }
   if(st.err)h+='<p class="muted">'+esc(st.err)+'</p>';
   app.innerHTML=h;
@@ -162,6 +207,8 @@ app.addEventListener("click",function(e){
   else if(a==="tab"){st.game=v;render()}
   else if(a==="pc"){st.pick=+v;render()}
   else if(a==="pw"){st.wpick=v;render()}
+  else if(a==="pk"){st.cpick=v;render()}
+  else if(a==="coin")coin();
   else if(a==="roll")roll();
   else if(a==="spin")spin();
   else if(a==="select"){st.osel=v;render()}
@@ -228,6 +275,24 @@ async function spin(){
   st.rolling=false;await load();render();
 }
 
+async function coin(){
+  if(st.rolling||!st.me)return;
+  var bad=checkStake();if(bad){st.cmsg=bad;render();return}
+  var stake=st.stake,pk=st.cpick;
+  st.rolling=true;
+  var btn=document.querySelector('[data-act="coin"]');if(btn)btn.disabled=true;
+  var r=await sb.rpc("play_coin",{p_side:pk,p_stake:stake});
+  if(r.error){st.cmsg=r.error.message;st.rolling=false;render();return}
+  var target=r.data.result==="K"?0:180,cur0=((st.crot%360)+360)%360,delta=(((target-cur0)%360)+360)%360;
+  st.crot+=1440+delta;
+  var el=document.getElementById("coin");
+  if(el){el.style.transition="transform 1.8s cubic-bezier(.2,.7,.2,1)";el.getBoundingClientRect();el.style.transform="rotateY("+st.crot+"deg)"}
+  await delay(2000);
+  var won=r.data.result===pk,net=r.data.payout-stake;
+  st.cmsg=(r.data.result==="K"?"Kopf":"Zahl")+" – "+(won?"gewonnen!":"verloren")+" ("+(net>=0?"+":"")+net+" Punkte)";
+  st.rolling=false;await load();render();
+}
+
 async function adminCall(fn,args){
   var r=await sb.rpc(fn,args);
   if(r.error){alert(r.error.message);return}
@@ -241,7 +306,7 @@ function toggleBan(){var s=selected();if(s)adminCall("set_banned",{p_target:s.id
 sb.auth.onAuthStateChange(function(ev,session){
   st.user=session?session.user:null;
   setTimeout(async function(){
-    if(st.user)await load();else{st.me=null;st.list=[]}
+    if(st.user)await load();else{st.me=null;st.list=[];st.feed=[];loadCount()}
     render();
   },0);
 });
@@ -251,7 +316,7 @@ setInterval(async function(){
   var ae=document.activeElement;
   if(ae&&ae.tagName==="INPUT"&&app.contains(ae))return;
   await load();render();
-},8000);
+},5000);
 })();
 </script>
 </body>
