@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Punkte-Spiele</title>
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--text:#222;--muted:#6b6b6b;--line:#ddd;--accent:#2f6fed}
+@media (prefers-color-scheme:dark){:root{--bg:#17181b;--card:#222428;--text:#eee;--muted:#a0a0a0;--line:#3a3d42;--accent:#6b97ff}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.4}
+main{max-width:640px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:0 0 4px}h2{font-size:1.05rem;margin:0 0 8px}
+.sub{color:var(--muted);margin:0 0 16px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input{width:110px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);font-size:1rem}
+button{padding:10px 16px;border:0;border-radius:10px;background:var(--accent);color:#fff;font-size:1rem;cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+.tab{padding:8px 12px;font-size:.9rem}
+.tab.off{background:transparent;color:var(--text);border:1px solid var(--line)}
+.bal{font-size:2rem;font-weight:800}
+.picker{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.pc{padding:8px 10px;font-size:.9rem;font-weight:700;opacity:.55;border:3px solid transparent}
+.pc.sel{opacity:1;border-color:var(--text)}
+.dice{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}
+.die{aspect-ratio:1;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:700;color:#fff;box-shadow:inset 0 -6px 0 rgba(0,0,0,.2);background:var(--line)}
+.die.roll{animation:wob .12s infinite}
+@keyframes wob{50%{transform:rotate(6deg) scale(.95)}}
+.msg{min-height:1.4em;font-weight:600;margin:4px 0}
+table{width:100%;border-collapse:collapse}
+td{padding:8px 4px;border-bottom:1px solid var(--line)}
+td.n{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.me td{color:var(--accent)}
+.muted{color:var(--muted);font-size:.9rem}
+.legend{display:flex;flex-wrap:wrap;gap:8px;font-size:.8rem;color:var(--muted)}
+.dot{width:12px;height:12px;border-radius:3px;display:inline-block;margin-right:3px;vertical-align:-1px}
+.opt{padding:8px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;cursor:pointer;display:flex;justify-content:space-between;gap:8px}
+.opt.sel{border-color:var(--accent);background:var(--bg);font-weight:700}
+.tag{font-size:.7rem;border:1px solid var(--line);border-radius:6px;padding:0 5px;margin-left:4px;color:var(--muted)}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<main>
+<h1>🎲 Punkte-Spiele</h1>
+<p class="sub">Farbwürfel und Glücksrad. Punkte bekommst du von einem Admin.</p>
+<div id="app"><div class="card">Lade …</div></div>
+<div class="card"><div class="legend" id="legend"></div>
+<p class="muted" style="margin-bottom:0"><b>Farbwürfel:</b> Wähle eine Farbe und setze 500 bis 2000 Punkte. Kommt deine Farbe 1× vor, bekommst du das Doppelte deines Einsatzes zurück. Bei 2× bekommst du deinen Einsatz zurück. Bei 0×, 3× oder 4× ist der Einsatz verloren.</p>
+<p class="muted" style="margin-bottom:0"><b>Glücksrad:</b> Wähle Dark oder light und setze 500 bis 2000 Punkte. Landet das Rad auf deiner Farbe, bekommst du das Doppelte deines Einsatzes. Bei der anderen Farbe oder beim Stern ★ ist der Einsatz verloren. Du kannst auch auf den Stern ★ setzen: Landet das Rad dort, bekommst du das Dreifache deines Einsatzes.</p></div>
+</main>
+<script>
+// ====== HIER DEINE SUPABASE-DATEN EINTRAGEN (siehe ANLEITUNG.md) ======
+var SUPABASE_URL = "https://xqijrymvymbhyuuocrmf.supabase.co";
+var SUPABASE_KEY = "sb_publishable_bwhr_aMkjdrUJmPNbeMdpQ_M8MV7k26";
+// =======================================================================
+
+(function(){
+var app=document.getElementById("app");
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function delay(ms){return new Promise(function(r){setTimeout(r,ms)})}
+if(SUPABASE_URL.indexOf("HIER")>=0||SUPABASE_KEY.indexOf("HIER")>=0){
+  app.innerHTML='<div class="card">Die Seite ist noch nicht eingerichtet. Trage oben in der Datei index.html die Supabase-Daten ein (siehe ANLEITUNG.md).</div>';return}
+var sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+var COLORS=[["Rot","#e53935"],["Orange","#fb8c00"],["Gelb","#e0a800"],["Grün","#2e9e4f"],["Blau","#1e6fe0"],["Lila","#8e44ad"],["Pink","#d81b7a"]];
+var SEGS=["D","L","D","S","L","D","L"];
+var MINS=500,MAXS=2000;
+document.getElementById("legend").innerHTML=COLORS.map(function(c){return '<span><span class="dot" style="background:'+c[1]+'"></span>'+c[0]+'</span>'}).join("");
+
+var st={user:null,me:null,list:[],err:"",game:"dice",pick:0,wpick:"D",stake:500,msg:"",wmsg:"",dice:null,wrot:0,rolling:false,osearch:"",osel:null,oamt:100};
+
+function diceHtml(v,roll){return '<div class="dice">'+[0,1,2,3].map(function(i){var x=v?v[i]:null;return '<div class="die'+(roll?' roll':'')+'" style="'+(x!==null?'background:'+COLORS[x][1]:'')+'">'+(x!==null?COLORS[x][0].charAt(0):'?')+'</div>'}).join("")+'</div>'}
+
+function wheelHtml(){
+  var n=7,sg=360/n,r=96,o='';
+  for(var i=0;i<n;i++){
+    var a0=(i*sg)*Math.PI/180,a1=((i+1)*sg)*Math.PI/180,t=SEGS[i];
+    var fill=t==="L"?"#f4f4f4":"#111",tc=t==="L"?"#111":(t==="S"?"#ffd54a":"#fff"),lab=t==="D"?"Dark":(t==="L"?"light":"★");
+    o+='<path d="M0,0 L'+(r*Math.cos(a0)).toFixed(2)+','+(r*Math.sin(a0)).toFixed(2)+' A'+r+','+r+' 0 0 1 '+(r*Math.cos(a1)).toFixed(2)+','+(r*Math.sin(a1)).toFixed(2)+' Z" fill="'+fill+'" stroke="#888" stroke-width=".6"/>';
+    o+='<text transform="rotate('+((i+.5)*sg).toFixed(2)+') translate(58,0)" text-anchor="middle" dominant-baseline="central" font-size="'+(t==="S"?16:12)+'" font-weight="700" fill="'+tc+'">'+lab+'</text>';
+  }
+  return '<div style="position:relative;width:min(100%,300px);margin:12px auto"><svg id="wheelsvg" viewBox="-100 -100 200 200" style="display:block;width:100%;transform:rotate('+st.wrot+'deg)"><circle r="99" fill="#888"/>'+o+'<circle r="13" fill="#fff" stroke="#888" stroke-width=".6"/></svg><div style="position:absolute;right:-8px;top:50%;margin-top:-10px;width:0;height:0;border-top:10px solid transparent;border-bottom:10px solid transparent;border-right:20px solid #e53935"></div></div>';
+}
+
+function optHtml(p){
+  return '<div class="opt'+(p.id===st.osel?' sel':'')+'" data-act="select" data-v="'+esc(p.id)+'"><span>'+esc(p.name)+(p.is_owner?'<span class="tag">Besitzer</span>':(p.is_admin?'<span class="tag">Admin</span>':''))+(p.banned?'<span class="tag">gesperrt</span>':'')+'</span><span>'+p.balance+'</span></div>';
+}
+function olist(){
+  var q=st.osearch.trim().toLowerCase();
+  var byName=function(a,b){return a.name.localeCompare(b.name,"de")};
+  // Namen, die mit dem Suchtext anfangen, kommen zuerst (A-Z); weitere Treffer stehen darunter
+  var pre=(q?st.list.filter(function(p){return p.name.toLowerCase().indexOf(q)===0}):st.list.slice()).sort(byName);
+  var rest=q?st.list.filter(function(p){return p.name.toLowerCase().indexOf(q)>0}).sort(byName):[];
+  if(!pre.length&&!rest.length)return '<p class="muted">Kein Spieler gefunden.</p>';
+  var h=pre.map(optHtml).join("");
+  if(!pre.length)h+='<p class="muted">Kein Name beginnt mit „'+esc(st.osearch.trim())+'“.</p>';
+  if(rest.length)h+='<p class="muted" style="margin:10px 0 6px">Weitere Treffer (Name enthält den Text):</p>'+rest.map(optHtml).join("");
+  return h;
+}
+
+async function load(){
+  var r=await sb.from("profiles").select("id,name,balance,is_admin,is_owner,banned").order("balance",{ascending:false});
+  if(r.error){st.err=r.error.message;return}
+  st.err="";st.list=r.data;
+  st.me=r.data.find(function(p){return p.id===st.user.id})||null;
+}
+
+function stakeRow(mx){
+  return '<div class="row" style="margin-top:10px">Einsatz: <input id="stake" type="number" min="'+MINS+'" max="'+Math.max(MINS,mx)+'" step="50" value="'+st.stake+'"><span class="muted">('+MINS+' bis '+MAXS+')</span></div>';
+}
+
+function render(){
+  if(st.rolling)return;
+  if(!st.user){
+    app.innerHTML='<div class="card"><p style="margin-top:0">Melde dich mit deinem Discord-Konto an, um zu spielen.</p><button data-act="login">Mit Discord anmelden</button></div>';
+    return;
+  }
+  var me=st.me;
+  if(!me){app.innerHTML='<div class="card">Lade …'+(st.err?'<p class="muted">'+esc(st.err)+'</p>':'')+'</div>';return}
+  var b=me.balance,canPlay=b>=MINS&&!me.banned;
+  var mx=Math.min(MAXS,b);if(st.stake>mx)st.stake=mx;if(st.stake<MINS)st.stake=MINS;
+
+  var h='<div class="card"><div class="row" style="justify-content:space-between"><span class="muted">Angemeldet als <b>'+esc(me.name)+'</b></span><button class="tab off" data-act="logout">Abmelden</button></div>';
+  h+='<div class="muted" style="margin-top:8px">Dein Punktestand</div><div class="bal">'+b+'</div>';
+  if(me.banned)h+='<p class="msg">Du wurdest gesperrt.</p>';
+  else if(b<MINS)h+='<p class="muted">Zum Spielen brauchst du mindestens '+MINS+' Punkte. Bitte einen Admin um Punkte.</p>';
+  h+='<div class="row" style="margin:10px 0 4px"><button class="tab'+(st.game==="dice"?'':' off')+'" data-act="tab" data-v="dice">🎲 Farbwürfel</button><button class="tab'+(st.game==="wheel"?'':' off')+'" data-act="tab" data-v="wheel">🎡 Glücksrad</button></div>';
+
+  if(st.game==="dice"){
+    h+='<div class="picker">'+COLORS.map(function(c,i){return '<button class="pc'+(i===st.pick?' sel':'')+'" data-act="pc" data-v="'+i+'" style="background:'+c[1]+'">'+c[0]+'</button>'}).join("")+'</div>';
+    h+=stakeRow(mx);
+    h+=diceHtml(st.dice,false)+'<div class="msg">'+esc(st.msg)+'</div><button data-act="roll"'+(canPlay?'':' disabled')+'>Würfeln auf '+COLORS[st.pick][0]+'</button></div>';
+  }else{
+    h+='<div class="picker"><button class="pc'+(st.wpick==="D"?' sel':'')+'" data-act="pw" data-v="D" style="background:#111;font-size:1rem">Dark</button><button class="pc'+(st.wpick==="L"?' sel':'')+'" data-act="pw" data-v="L" style="background:#f4f4f4;color:#111;font-size:1rem;border-color:'+(st.wpick==="L"?'var(--text)':'#bbb')+'">light</button><button class="pc'+(st.wpick==="S"?' sel':'')+'" data-act="pw" data-v="S" style="background:#111;color:#ffd54a;font-size:1rem">★ Stern (×3)</button></div>';
+    h+=stakeRow(mx);
+    h+=wheelHtml()+'<div class="msg">'+esc(st.wmsg)+'</div><button data-act="spin"'+(canPlay?'':' disabled')+'>Drehen auf '+(st.wpick==="D"?'Dark':(st.wpick==="L"?'light':'Stern'))+'</button></div>';
+  }
+
+  var top=st.list.filter(function(p){return !p.banned}).slice(0,50);
+  h+='<div class="card"><h2>Rangliste</h2><table>'+top.map(function(p){return '<tr class="'+(p.id===me.id?'me':'')+'"><td>'+esc(p.name)+(p.id===me.id?' (du)':'')+'</td><td class="n">'+p.balance+'</td></tr>'}).join("")+'</table></div>';
+
+  if(me.is_admin){
+    var sel=st.list.find(function(p){return p.id===st.osel})||null;
+    if(!sel)st.osel=null;
+    h+='<div class="card"><h2>Admin</h2><input id="osearch" type="search" placeholder="Spieler suchen …" value="'+esc(st.osearch)+'" style="width:100%;margin-bottom:8px"><div id="olist">'+olist()+'</div>';
+    h+='<p class="muted" style="margin:8px 0">'+(sel?'Ausgewählt: <b>'+esc(sel.name)+'</b>':'Tippe auf einen Spieler, um ihn auszuwählen.')+'</p>';
+    h+='<div class="row"><input id="oamt" type="number" value="'+esc(st.oamt)+'"><button data-act="give"'+(sel?'':' disabled')+'>Punkte geben</button></div><p class="muted">Negative Zahl = Punkte abziehen.</p>';
+    h+='<div class="row">';
+    if(me.is_owner)h+='<button class="tab off" data-act="admin"'+(sel&&!sel.is_owner?'':' disabled')+'>'+(sel&&sel.is_admin?'Admin entfernen':'Zum Admin machen')+'</button>';
+    h+='<button class="tab off" data-act="ban"'+(sel&&!sel.is_owner?'':' disabled')+'>'+(sel&&sel.banned?'Entsperren':'Sperren')+'</button></div></div>';
+  }
+  if(st.err)h+='<p class="muted">'+esc(st.err)+'</p>';
+  app.innerHTML=h;
+}
+
+app.addEventListener("click",function(e){
+  var t=e.target.closest("[data-act]");if(!t||t.disabled)return;
+  var a=t.dataset.act,v=t.dataset.v;
+  if(a==="login")login();
+  else if(a==="logout")logout();
+  else if(a==="tab"){st.game=v;render()}
+  else if(a==="pc"){st.pick=+v;render()}
+  else if(a==="pw"){st.wpick=v;render()}
+  else if(a==="roll")roll();
+  else if(a==="spin")spin();
+  else if(a==="select"){st.osel=v;render()}
+  else if(a==="give")give();
+  else if(a==="admin")toggleAdmin();
+  else if(a==="ban")toggleBan();
+});
+app.addEventListener("input",function(e){
+  var t=e.target;
+  if(t.id==="stake")st.stake=parseInt(t.value)||MINS;
+  else if(t.id==="oamt")st.oamt=t.value;
+  else if(t.id==="osearch"){st.osearch=t.value;document.getElementById("olist").innerHTML=olist()}
+});
+
+async function login(){
+  var r=await sb.auth.signInWithOAuth({provider:"discord",options:{redirectTo:location.origin+location.pathname}});
+  if(r.error)alert(r.error.message);
+}
+async function logout(){await sb.auth.signOut()}
+
+function checkStake(){
+  if(st.stake<MINS||st.stake>MAXS||st.stake>st.me.balance)return "Der Einsatz muss zwischen "+MINS+" und "+MAXS+" liegen und darf nicht höher als dein Punktestand sein.";
+  return "";
+}
+
+async function roll(){
+  if(st.rolling||!st.me)return;
+  var bad=checkStake();if(bad){st.msg=bad;render();return}
+  var stake=st.stake,pk=st.pick;
+  st.rolling=true;
+  var btn=document.querySelector('[data-act="roll"]');if(btn)btn.disabled=true;
+  var box=document.querySelector(".dice");
+  var iv=setInterval(function(){
+    var v=[0,1,2,3].map(function(){return Math.floor(Math.random()*7)});
+    if(box){box.outerHTML=diceHtml(v,true);box=document.querySelector(".dice")}
+  },80);
+  var out=await Promise.all([sb.rpc("play_dice",{p_color:pk,p_stake:stake}),delay(800)]);
+  clearInterval(iv);
+  var r=out[0];
+  if(r.error){st.msg=r.error.message}
+  else{
+    var d=r.data;st.dice=d.dice;var net=d.payout-stake;
+    st.msg=COLORS[pk][0]+" kam "+d.k+"× – "+(d.k===1?"doppelter Einsatz zurück!":(d.k===2?"Einsatz zurück":"verloren"))+" ("+(net>=0?"+":"")+net+" Punkte)";
+  }
+  st.rolling=false;await load();render();
+}
+
+async function spin(){
+  if(st.rolling||!st.me)return;
+  var bad=checkStake();if(bad){st.wmsg=bad;render();return}
+  var stake=st.stake,pk=st.wpick;
+  st.rolling=true;
+  var btn=document.querySelector('[data-act="spin"]');if(btn)btn.disabled=true;
+  var r=await sb.rpc("play_wheel",{p_bet:pk,p_stake:stake});
+  if(r.error){st.wmsg=r.error.message;st.rolling=false;render();return}
+  var idx=r.data.idx,sg=360/7,off=(Math.random()-.5)*.7*sg;
+  var base=(((-(idx+.5)*sg+off)%360)+360)%360,cur0=((st.wrot%360)+360)%360,delta=(((base-cur0)%360)+360)%360;
+  st.wrot+=1800+delta;
+  var svg=document.getElementById("wheelsvg");
+  if(svg){svg.style.transition="transform 4.5s cubic-bezier(.12,.6,.1,1)";svg.getBoundingClientRect();svg.style.transform="rotate("+st.wrot+"deg)"}
+  await delay(4700);
+  var t=SEGS[idx],net=r.data.payout-stake;
+  st.wmsg=(t==="S"?"Stern – "+(pk==="S"?"gewonnen, dreifacher Einsatz!":"verloren"):(t==="D"?"Dark":"light")+" – "+(t===pk?"gewonnen!":"verloren"))+" ("+(net>=0?"+":"")+net+" Punkte)";
+  st.rolling=false;await load();render();
+}
+
+async function adminCall(fn,args){
+  var r=await sb.rpc(fn,args);
+  if(r.error){alert(r.error.message);return}
+  await load();render();
+}
+function selected(){return st.list.find(function(p){return p.id===st.osel})||null}
+function give(){var amt=parseInt(st.oamt);if(!st.osel||!amt)return;adminCall("give_points",{p_target:st.osel,p_amount:amt})}
+function toggleAdmin(){var s=selected();if(s)adminCall("set_admin",{p_target:s.id,p_value:!s.is_admin})}
+function toggleBan(){var s=selected();if(s)adminCall("set_banned",{p_target:s.id,p_value:!s.banned})}
+
+sb.auth.onAuthStateChange(function(ev,session){
+  st.user=session?session.user:null;
+  setTimeout(async function(){
+    if(st.user)await load();else{st.me=null;st.list=[]}
+    render();
+  },0);
+});
+
+setInterval(async function(){
+  if(!st.user||st.rolling)return;
+  var ae=document.activeElement;
+  if(ae&&ae.tagName==="INPUT"&&app.contains(ae))return;
+  await load();render();
+},8000);
+})();
+</script>
+</body>
+</html>
