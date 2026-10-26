@@ -238,7 +238,7 @@ async function load(){
   if(Date.now()-st.lastExpire>30000){st.lastExpire=Date.now();try{sb.rpc("expire_challenges").then(function(){},function(){})}catch(e){}}
   var qs=[
     sb.from("profiles").select("id,name,balance,total_wagered,is_admin,is_owner,banned").order("balance",{ascending:false}),
-    sb.from("game_log").select("id,user_id,game,bet,stake,payout,created_at").order("created_at",{ascending:false}).limit(25),
+    sb.from("game_log").select("id,user_id,game,bet,stake,payout,created_at").order("created_at",{ascending:false}).limit(5),
     sb.from("challenges").select(CH_COLS).eq("status","open").order("created_at",{ascending:true}).limit(50),
     sb.from("challenges").select(CH_COLS).eq("status","done").order("finished_at",{ascending:false}).limit(12)
   ];
@@ -350,7 +350,7 @@ function duelHtml(me,canPlay,mx){
   }
   h+='<p class="muted">Du trittst mit der oben gewählten Farbe bei (sie muss sich von der Farbe deines Gegners unterscheiden). Der Einsatz ist der des Erstellers.</p></div>';
 
-  var done=st.ch.filter(function(c){return c.status==="done"}).slice(0,8);
+  var done=st.ch.filter(function(c){return c.status==="done"}).slice(0,5);
   h+='<div class="card"><h2>Letzte Duelle</h2>';
   if(!done.length)h+='<p class="muted">Noch keine Duelle gespielt.</p>';
   done.forEach(function(c){
