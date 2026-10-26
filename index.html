@@ -77,10 +77,10 @@ td.n{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
 <p class="sub">Farbwürfel, Glücksrad, Münzwurf und 1 gegen 1. Punkte bekommst du von einem Admin.<br>👥 <b id="cnt">–</b> Spieler angemeldet</p>
 <div id="app"><div class="card">Lade …</div></div>
 <div class="card"><div class="legend" id="legend"></div>
-<p class="muted" style="margin-bottom:0"><b>Farbwürfel:</b> Wähle eine Farbe und setze 500 bis 2000 Punkte. Kommt deine Farbe 1× vor, bekommst du das Doppelte deines Einsatzes zurück. Bei 2× bekommst du deinen Einsatz zurück. Bei 0×, 3× oder 4× ist der Einsatz verloren.</p>
-<p class="muted" style="margin-bottom:0"><b>Glücksrad:</b> Wähle Dark oder light und setze 500 bis 2000 Punkte. Landet das Rad auf deiner Farbe, bekommst du das Doppelte deines Einsatzes. Bei der anderen Farbe oder beim Stern ★ ist der Einsatz verloren. Du kannst auch auf den Stern ★ setzen: Landet das Rad dort, bekommst du das Dreifache deines Einsatzes.</p>
-<p class="muted" style="margin-bottom:0"><b>Münzwurf:</b> Wähle Kopf oder Zahl und setze 500 bis 2000 Punkte. Trifft deine Seite (50 %), bekommst du das 1,9-fache deines Einsatzes zurück, sonst ist er verloren.</p>
-<p class="muted" style="margin-bottom:0"><b>1 gegen 1:</b> Du wählst eine Farbe und deinen Einsatz (500 bis 2000) und erstellst eine Herausforderung. Ein anderer Spieler tritt mit einer anderen Farbe bei und setzt denselben Einsatz. Dann wird mit 4 Würfeln gewürfelt: Wessen Farbe öfter fällt, gewinnt den ganzen Pott (doppelter Einsatz). Bei Gleichstand wird automatisch neu gewürfelt. Findet sich 15 Minuten lang kein Gegner, bekommst du deinen Einsatz zurück. Du kannst die Herausforderung auch selbst abbrechen.</p></div>
+<p class="muted" style="margin-bottom:0"><b>Farbwürfel:</b> Wähle eine Farbe und setze <span class="lim">500 bis 2000</span> Punkte. Kommt deine Farbe 1× vor, bekommst du das Doppelte deines Einsatzes zurück. Bei 2× bekommst du deinen Einsatz zurück. Bei 0×, 3× oder 4× ist der Einsatz verloren.</p>
+<p class="muted" style="margin-bottom:0"><b>Glücksrad:</b> Wähle Dark oder light und setze <span class="lim">500 bis 2000</span> Punkte. Landet das Rad auf deiner Farbe, bekommst du das Doppelte deines Einsatzes. Bei der anderen Farbe oder beim Stern ★ ist der Einsatz verloren. Du kannst auch auf den Stern ★ setzen: Landet das Rad dort, bekommst du das Dreifache deines Einsatzes.</p>
+<p class="muted" style="margin-bottom:0"><b>Münzwurf:</b> Wähle Kopf oder Zahl und setze <span class="lim">500 bis 2000</span> Punkte. Trifft deine Seite (50 %), bekommst du das 1,9-fache deines Einsatzes zurück, sonst ist er verloren.</p>
+<p class="muted" style="margin-bottom:0"><b>1 gegen 1:</b> Du wählst eine Farbe und deinen Einsatz (<span class="lim">500 bis 2000</span>) und erstellst eine Herausforderung. Ein anderer Spieler tritt mit einer anderen Farbe bei und setzt denselben Einsatz. Dann wird mit 4 Würfeln gewürfelt: Wessen Farbe öfter fällt, gewinnt den ganzen Pott (doppelter Einsatz). Bei Gleichstand wird automatisch neu gewürfelt. Findet sich 15 Minuten lang kein Gegner, bekommst du deinen Einsatz zurück. Du kannst die Herausforderung auch selbst abbrechen.</p></div>
 </main>
 <script>
 // Die Supabase-Daten stehen in der Datei config.js (siehe ANLEITUNG.md)
@@ -187,9 +187,11 @@ var sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 var COLORS=[["Rot","#e53935"],["Orange","#fb8c00"],["Gelb","#e0a800"],["Grün","#2e9e4f"],["Blau","#1e6fe0"],["Lila","#8e44ad"],["Pink","#d81b7a"]];
 var SEGS=["D","L","D","S","L","D","L"];
 var MINS=500,MAXS=2000;
+function limTxt(){return MINS+' bis '+MAXS}
+function setLim(mn,mx){MINS=+mn;MAXS=+mx;Array.prototype.forEach.call(document.querySelectorAll('.lim'),function(e){e.textContent=limTxt()})}
 document.getElementById("legend").innerHTML=COLORS.map(function(c){return '<span><span class="dot" style="background:'+c[1]+'"></span>'+c[0]+'</span>'}).join("");
 
-var st={lastPick:null,landed:false,user:null,me:null,list:[],feed:[],names:{},err:"",cpick:"K",crot:0,cmsg:"",game:"dice",pick:0,wpick:"D",stake:500,msg:"",wmsg:"",dice:null,wrot:0,rolling:false,duelMsg:"",duelRes:null,dpick:0,ch:[],seen:{},seenInit:false,toast:"",toastUntil:0,menuOpen:false,stats:[],mylog:[],lastExpire:0,osearch:"",osel:null,oamt:100};
+var st={lastPick:null,landed:false,user:null,me:null,list:[],feed:[],names:{},err:"",cpick:"K",crot:0,cmsg:"",game:"dice",pick:0,wpick:"D",stake:500,msg:"",wmsg:"",dice:null,wrot:0,rolling:false,duelMsg:"",duelRes:null,dpick:0,ch:[],seen:{},seenInit:false,toast:"",toastUntil:0,menuOpen:false,stats:[],mylog:[],lastExpire:0,osearch:"",osel:null,oamt:100,lminIn:null,lmaxIn:null,limUpd:null};
 
 function shade(h,f){var n=parseInt(h.slice(1),16),r=n>>16,g=(n>>8)&255,b=n&255;return "rgb("+Math.round(r*f)+","+Math.round(g*f)+","+Math.round(b*f)+")"}
 function diceHtml(v,roll,marks){return '<div class="dice">'+[0,1,2,3].map(function(i){
@@ -244,7 +246,10 @@ async function load(){
     qs.push(sb.rpc("my_stats"));
     qs.push(sb.from("game_log").select("id,game,bet,stake,payout,created_at").eq("user_id",st.user.id).order("created_at",{ascending:false}).limit(50));
   }
+  qs.push(sb.from("settings").select("min_bet,max_bet,updated_at").eq("id",1).maybeSingle());
   var rr=await Promise.all(qs);
+  var sr=rr[rr.length-1];
+  if(sr&&!sr.error&&sr.data){setLim(sr.data.min_bet,sr.data.max_bet);st.limUpd=sr.data.updated_at}
   var r=rr[0],f=rr[1];
   if(r.error){st.err=r.error.message;return}
   st.err="";st.list=r.data;
@@ -382,7 +387,7 @@ function menuHtml(){
 }
 
 function stakeRow(mx){
-  return '<div class="row" style="margin-top:10px">Einsatz: <input id="stake" type="number" min="'+MINS+'" max="'+Math.max(MINS,mx)+'" step="50" value="'+st.stake+'"><span class="muted">('+MINS+' bis '+MAXS+')</span></div>';
+  return '<div class="row" style="margin-top:10px">Einsatz: <input id="stake" type="number" min="'+MINS+'" max="'+Math.max(MINS,mx)+'" step="50" value="'+st.stake+'"><span class="muted">(Mindesteinsatz '+fmt(MINS)+' · Höchsteinsatz '+fmt(MAXS)+')</span></div>';
 }
 
 function render(){
@@ -429,7 +434,11 @@ function render(){
     h+='<div class="card"><h2>Admin</h2><input id="osearch" type="search" placeholder="Spieler suchen …" value="'+esc(st.osearch)+'" style="width:100%;margin-bottom:8px"><div id="olist">'+olist()+'</div>';
     h+='<p class="muted" style="margin:8px 0">'+(sel?'Ausgewählt: <b>'+esc(sel.name)+'</b>':'Tippe auf einen Spieler, um ihn auszuwählen.')+'</p>';
     h+='<div class="row"><input id="oamt" type="number" value="'+esc(st.oamt)+'"><button data-act="give"'+(sel?'':' disabled')+'>Punkte geben</button></div><p class="muted">Negative Zahl = Punkte abziehen.</p>';
-    h+='<div class="row">';
+    var lmi=st.lminIn!==null?st.lminIn:MINS,lma=st.lmaxIn!==null?st.lmaxIn:MAXS;
+    h+='<h2 style="margin-top:16px">Einsatz-Grenzen</h2><p class="muted" style="margin:0 0 8px">Aktuell: Mindesteinsatz <b>'+fmt(MINS)+'</b> · Höchsteinsatz <b>'+fmt(MAXS)+'</b></p>';
+    h+='<div class="row"><label class="muted">Min <input id="lmin" type="number" min="1" value="'+esc(lmi)+'"></label><label class="muted">Max <input id="lmax" type="number" min="1" value="'+esc(lma)+'"></label><button data-act="limits">Speichern</button></div>';
+    h+='<p class="muted">Gilt sofort für alle Spiele. Bereits offene Duelle behalten ihren Einsatz.</p>';
+    h+='<h2 style="margin-top:16px">Spieler verwalten</h2><div class="row">';
     if(me.is_owner)h+='<button class="tab off" data-act="admin"'+(sel&&!sel.is_owner?'':' disabled')+'>'+(sel&&sel.is_admin?'Admin entfernen':'Zum Admin machen')+'</button>';
     h+='<button class="tab off" data-act="ban"'+(sel&&!sel.is_owner&&sel.id!==me.id&&(!sel.is_admin||me.is_owner)?'':' disabled')+'>'+(sel&&sel.banned?'Entsperren':'Sperren')+'</button></div></div>';
   }
@@ -453,6 +462,7 @@ app.addEventListener("click",function(e){
   else if(a==="give")give();
   else if(a==="admin")toggleAdmin();
   else if(a==="ban")toggleBan();
+  else if(a==="limits")saveLimits();
   else if(a==="pd"){st.dpick=+v;render()}
   else if(a==="dcreate")duelCreate();
   else if(a==="dcancel")duelCancel(+v);
@@ -467,6 +477,8 @@ app.addEventListener("input",function(e){
   var t=e.target;
   if(t.id==="stake")st.stake=parseInt(t.value)||MINS;
   else if(t.id==="oamt")st.oamt=t.value;
+  else if(t.id==="lmin")st.lminIn=t.value;
+  else if(t.id==="lmax")st.lmaxIn=t.value;
   else if(t.id==="osearch"){st.osearch=t.value;document.getElementById("olist").innerHTML=olist()}
 });
 
@@ -590,6 +602,15 @@ async function adminCall(fn,args){
 }
 function selected(){return st.list.find(function(p){return p.id===st.osel})||null}
 function give(){var amt=parseInt(st.oamt);if(!st.osel||!amt)return;adminCall("give_points",{p_target:st.osel,p_amount:amt})}
+async function saveLimits(){
+  var mn=parseInt(st.lminIn!==null?st.lminIn:MINS),mx=parseInt(st.lmaxIn!==null?st.lmaxIn:MAXS);
+  if(!(mn>=1)||!(mx>=mn)){alert("Bitte gültige Werte eingeben. Der Höchsteinsatz darf nicht kleiner als der Mindesteinsatz sein.");return}
+  var r=await sb.rpc("set_limits",{p_min:mn,p_max:mx});
+  if(r.error){alert(r.error.message);return}
+  st.lminIn=null;st.lmaxIn=null;
+  await load();render();
+  st.msg="";
+}
 function toggleAdmin(){var s=selected();if(s)adminCall("set_admin",{p_target:s.id,p_value:!s.is_admin})}
 function toggleBan(){var s=selected();if(s)adminCall("set_banned",{p_target:s.id,p_value:!s.banned})}
 
