@@ -55,6 +55,18 @@ td.n{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
 .wag{font-size:.72rem;color:var(--muted);margin-left:6px;font-weight:400}
 .feed-i{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:.88rem}
 .win{color:#4ade80;font-weight:700}.loss{color:#f87171;font-weight:700}.even{color:var(--muted);font-weight:700}
+.die.hit2{box-shadow:inset 0 -7px 0 rgba(0,0,0,.28),inset 0 2px 0 rgba(255,255,255,.45),0 0 0 3px #ffd54a,0 0 22px 4px rgba(255,213,74,.7)}
+.toast{background:linear-gradient(90deg,rgba(245,179,1,.28),rgba(255,138,92,.22));border:1px solid var(--accent);border-radius:14px;padding:12px 14px;margin-bottom:14px;cursor:pointer;font-weight:600}
+.chip{display:inline-block;padding:2px 9px;border-radius:999px;color:#fff;font-size:.8rem;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.4)}
+.duel-i{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:.9rem;flex-wrap:wrap}
+.md{display:inline-block;width:16px;height:16px;border-radius:5px;margin-right:4px;vertical-align:-3px}
+.md.hit{outline:2px solid #fff}.md.hit2{outline:2px solid #ffd54a}
+.stt{width:100%;border-collapse:collapse}
+.stt th{font-size:.72rem;color:var(--muted);font-weight:600;text-align:right;padding:4px 3px;border-bottom:1px solid var(--line)}
+.stt th:first-child{text-align:left}
+.stt td{font-size:.85rem;padding:7px 3px;border-bottom:1px solid var(--line)}
+.stt tr.sum td{font-weight:800;border-top:2px solid var(--line)}
+.ibtn{padding:6px 10px;font-size:1rem}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
@@ -62,18 +74,107 @@ td.n{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
 <body>
 <main>
 <h1>🎲 Punkte-Spiele</h1>
-<p class="sub">Farbwürfel, Glücksrad und Münzwurf. Punkte bekommst du von einem Admin.<br>👥 <b id="cnt">–</b> Spieler angemeldet</p>
+<p class="sub">Farbwürfel, Glücksrad, Münzwurf und 1 gegen 1. Punkte bekommst du von einem Admin.<br>👥 <b id="cnt">–</b> Spieler angemeldet</p>
 <div id="app"><div class="card">Lade …</div></div>
 <div class="card"><div class="legend" id="legend"></div>
 <p class="muted" style="margin-bottom:0"><b>Farbwürfel:</b> Wähle eine Farbe und setze 500 bis 2000 Punkte. Kommt deine Farbe 1× vor, bekommst du das Doppelte deines Einsatzes zurück. Bei 2× bekommst du deinen Einsatz zurück. Bei 0×, 3× oder 4× ist der Einsatz verloren.</p>
 <p class="muted" style="margin-bottom:0"><b>Glücksrad:</b> Wähle Dark oder light und setze 500 bis 2000 Punkte. Landet das Rad auf deiner Farbe, bekommst du das Doppelte deines Einsatzes. Bei der anderen Farbe oder beim Stern ★ ist der Einsatz verloren. Du kannst auch auf den Stern ★ setzen: Landet das Rad dort, bekommst du das Dreifache deines Einsatzes.</p>
-<p class="muted" style="margin-bottom:0"><b>Münzwurf:</b> Wähle Kopf oder Zahl und setze 500 bis 2000 Punkte. Trifft deine Seite (50 %), bekommst du das 1,9-fache deines Einsatzes zurück, sonst ist er verloren.</p></div>
+<p class="muted" style="margin-bottom:0"><b>Münzwurf:</b> Wähle Kopf oder Zahl und setze 500 bis 2000 Punkte. Trifft deine Seite (50 %), bekommst du das 1,9-fache deines Einsatzes zurück, sonst ist er verloren.</p>
+<p class="muted" style="margin-bottom:0"><b>1 gegen 1:</b> Du wählst eine Farbe und deinen Einsatz (500 bis 2000) und erstellst eine Herausforderung. Ein anderer Spieler tritt mit einer anderen Farbe bei und setzt denselben Einsatz. Dann wird mit 4 Würfeln gewürfelt: Wessen Farbe öfter fällt, gewinnt den ganzen Pott (doppelter Einsatz). Bei Gleichstand wird automatisch neu gewürfelt. Findet sich 15 Minuten lang kein Gegner, bekommst du deinen Einsatz zurück. Du kannst die Herausforderung auch selbst abbrechen.</p></div>
 </main>
 <script>
 // Die Supabase-Daten stehen in der Datei config.js (siehe ANLEITUNG.md)
 var cfg = window.APP_CONFIG || {};
 var SUPABASE_URL = cfg.url || "HIER_EINTRAGEN";
 var SUPABASE_KEY = cfg.key || "HIER_EINTRAGEN";
+
+// ===== Sounds (werden im Browser erzeugt, keine Audiodateien nötig) =====
+var SFX=(function(){
+  var ctx=null,master=null,muted=false,nbuf=null;
+  try{muted=localStorage.getItem("ps_muted")==="1"}catch(e){}
+  function get(){
+    try{
+      if(!ctx){
+        var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;
+        ctx=new AC();master=ctx.createGain();master.gain.value=1;master.connect(ctx.destination);
+      }
+      if(ctx.state==="suspended")ctx.resume();
+      return ctx;
+    }catch(e){return null}
+  }
+  function blip(c,o,t,f,dur,type,vol,f2){
+    var os=c.createOscillator(),g=c.createGain();
+    os.type=type||"sine";os.frequency.setValueAtTime(f,t);
+    if(f2)os.frequency.exponentialRampToValueAtTime(f2,t+dur);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+.008);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    os.connect(g);g.connect(o);os.start(t);os.stop(t+dur+.03);
+  }
+  function noise(c){
+    if(!nbuf||nbuf.sampleRate!==c.sampleRate){
+      nbuf=c.createBuffer(1,c.sampleRate,c.sampleRate);var d=nbuf.getChannelData(0);
+      for(var i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+    }
+    return nbuf;
+  }
+  function click(c,o,t,freq,vol,dur){
+    var src=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();
+    src.buffer=noise(c);f.type="bandpass";f.frequency.value=freq;f.Q.value=1.3;
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+.004);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    src.connect(f);f.connect(g);g.connect(o);src.start(t,Math.random()*.5,dur+.03);
+  }
+  var G={
+    dice:function(c,o,t){
+      for(var i=0;i<16;i++){
+        var tt=t+i*.105+Math.random()*.05;
+        click(c,o,tt,1700+Math.random()*2300,.75+.4*Math.random(),.05);
+        if(i%3===0)blip(c,o,tt,170+Math.random()*60,.07,"triangle",.3,90);
+      }
+    },
+    land:function(c,o,t){
+      for(var i=0;i<4;i++){var tt=t+i*.09;blip(c,o,tt,150-i*10,.15,"sine",.55,60);click(c,o,tt,900,.45,.06)}
+    },
+    wheel:function(c,o,t,n){
+      n=n||36;
+      click(c,o,t,500,.5,.5);
+      for(var k=1;k<=n;k++){
+        var tk=4.5*(1-Math.pow(1-k/n,1/3.2));
+        blip(c,o,t+tk,1150+(k%2)*90,.04,"square",.22);
+        click(c,o,t+tk,2600,.3,.02);
+      }
+    },
+    coin:function(c,o,t){
+      click(c,o,t,3200,.6,.35);
+      for(var i=0;i<10;i++){var tt=t+i*.17+i*i*.004;blip(c,o,tt,2000+i*60,.05,"triangle",.22)}
+    },
+    coinland:function(c,o,t){
+      blip(c,o,t,2637,.7,"sine",.3);blip(c,o,t,3951,.5,"sine",.18);blip(c,o,t+.12,2637,.45,"sine",.18);blip(c,o,t,320,.12,"sine",.35,120);
+    },
+    win:function(c,o,t,big){
+      var n=big?[523,659,784,1047,1319,1568]:[523,659,784,1047];
+      n.forEach(function(f,i){blip(c,o,t+i*.09,f,.28,"triangle",.28);blip(c,o,t+i*.09,f*2,.2,"sine",.08)});
+    },
+    lose:function(c,o,t){blip(c,o,t,330,.4,"sawtooth",.28,200);blip(c,o,t+.22,247,.5,"sawtooth",.28,130)},
+    even:function(c,o,t){blip(c,o,t,440,.3,"sine",.25);blip(c,o,t+.12,440,.3,"sine",.18)},
+    ding:function(c,o,t){blip(c,o,t,880,.45,"sine",.3);blip(c,o,t+.14,1320,.55,"sine",.28)}
+  };
+  return {
+    play:function(name,a){
+      if(muted||!G[name])return;
+      var c=get();if(!c)return;
+      try{G[name](c,master,c.currentTime+.02,a)}catch(e){}
+    },
+    unlock:function(){get()},
+    isMuted:function(){return muted},
+    setMuted:function(v){muted=!!v;try{localStorage.setItem("ps_muted",muted?"1":"0")}catch(e){}},
+    render:function(name,dur,a){
+      var OC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+      var c=new OC(1,Math.ceil(44100*dur),44100),m=c.createGain();m.gain.value=1;m.connect(c.destination);
+      G[name](c,m,.02,a);
+      return c.startRendering().then(function(b){return b.getChannelData(0)});
+    },
+    names:Object.keys(G)
+  };
+})();
 
 (function(){
 var app=document.getElementById("app");
@@ -88,14 +189,15 @@ var SEGS=["D","L","D","S","L","D","L"];
 var MINS=500,MAXS=2000;
 document.getElementById("legend").innerHTML=COLORS.map(function(c){return '<span><span class="dot" style="background:'+c[1]+'"></span>'+c[0]+'</span>'}).join("");
 
-var st={lastPick:null,landed:false,user:null,me:null,list:[],feed:[],names:{},err:"",cpick:"K",crot:0,cmsg:"",game:"dice",pick:0,wpick:"D",stake:500,msg:"",wmsg:"",dice:null,wrot:0,rolling:false,osearch:"",osel:null,oamt:100};
+var st={lastPick:null,landed:false,user:null,me:null,list:[],feed:[],names:{},err:"",cpick:"K",crot:0,cmsg:"",game:"dice",pick:0,wpick:"D",stake:500,msg:"",wmsg:"",dice:null,wrot:0,rolling:false,duelMsg:"",duelRes:null,dpick:0,ch:[],seen:{},seenInit:false,toast:"",toastUntil:0,menuOpen:false,stats:[],mylog:[],lastExpire:0,osearch:"",osel:null,oamt:100};
 
 function shade(h,f){var n=parseInt(h.slice(1),16),r=n>>16,g=(n>>8)&255,b=n&255;return "rgb("+Math.round(r*f)+","+Math.round(g*f)+","+Math.round(b*f)+")"}
-function diceHtml(v,roll){return '<div class="dice">'+[0,1,2,3].map(function(i){
+function diceHtml(v,roll,marks){return '<div class="dice">'+[0,1,2,3].map(function(i){
   var x=v?v[i]:null;
   if(x===null)return '<div class="die q'+(roll?' roll':'')+'">?</div>';
-  var c=COLORS[x][1],hit=(!roll&&st.lastPick===x);
-  return '<div class="die'+(roll?' roll':'')+(!roll&&st.landed?' land':'')+(hit?' hit':'')+'" style="--c:'+c+';--c2:'+shade(c,.62)+'"><span class="nm">'+COLORS[x][0]+'</span></div>';
+  var c=COLORS[x][1],mk=null;
+  if(!roll){if(marks)mk=marks[x]||null;else if(st.lastPick===x)mk="hit"}
+  return '<div class="die'+(roll?' roll':'')+(!roll&&st.landed?' land':'')+(mk?' '+mk:'')+'" style="--c:'+c+';--c2:'+shade(c,.62)+'"><span class="nm">'+COLORS[x][0]+'</span></div>';
 }).join("")+'</div>'}
 
 function wheelHtml(){
@@ -129,17 +231,37 @@ function fmt(n){return Number(n||0).toLocaleString("de-DE")}
 function setCount(n){var el=document.getElementById("cnt");if(el)el.textContent=n}
 async function loadCount(){var r=await sb.rpc("player_count");if(!r.error)setCount(r.data)}
 
+var CH_COLS="id,creator_id,creator_color,stake,status,joiner_id,joiner_color,dice,rounds,winner_id,created_at,finished_at";
 async function load(){
-  var rr=await Promise.all([
+  if(Date.now()-st.lastExpire>30000){st.lastExpire=Date.now();try{sb.rpc("expire_challenges").then(function(){},function(){})}catch(e){}}
+  var qs=[
     sb.from("profiles").select("id,name,balance,total_wagered,is_admin,is_owner,banned").order("balance",{ascending:false}),
-    sb.from("game_log").select("id,user_id,game,bet,stake,payout,created_at").order("created_at",{ascending:false}).limit(25)
-  ]);
+    sb.from("game_log").select("id,user_id,game,bet,stake,payout,created_at").order("created_at",{ascending:false}).limit(25),
+    sb.from("challenges").select(CH_COLS).eq("status","open").order("created_at",{ascending:true}).limit(50),
+    sb.from("challenges").select(CH_COLS).eq("status","done").order("finished_at",{ascending:false}).limit(12)
+  ];
+  if(st.menuOpen){
+    qs.push(sb.rpc("my_stats"));
+    qs.push(sb.from("game_log").select("id,game,bet,stake,payout,created_at").eq("user_id",st.user.id).order("created_at",{ascending:false}).limit(50));
+  }
+  var rr=await Promise.all(qs);
   var r=rr[0],f=rr[1];
   if(r.error){st.err=r.error.message;return}
   st.err="";st.list=r.data;
   st.names={};r.data.forEach(function(p){st.names[p.id]=p.name});
   st.me=r.data.find(function(p){return p.id===st.user.id})||null;
   if(!f.error)st.feed=f.data;
+  var op=rr[2],dn=rr[3];
+  if(!op.error&&!dn.error){
+    st.ch=op.data.concat(dn.data);
+    var mine=dn.data.filter(function(x){return x.creator_id===st.user.id});
+    if(st.seenInit){mine.forEach(function(x){if(!st.seen[x.id]){st.seen[x.id]=1;notifyDuel(x)}})}
+    else{mine.forEach(function(x){st.seen[x.id]=1});st.seenInit=true}
+  }
+  if(st.menuOpen&&rr[4]&&rr[5]){
+    if(!rr[4].error)st.stats=rr[4].data||[];
+    if(!rr[5].error)st.mylog=rr[5].data||[];
+  }
   setCount(r.data.length);
 }
 
@@ -148,18 +270,115 @@ function coinHtml(){
 }
 
 function betLabel(g,b){
-  if(g==="dice")return COLORS[+b]?COLORS[+b][0]:"?";
+  if(g==="dice"||g==="duel")return COLORS[+b]?COLORS[+b][0]:"?";
   if(g==="wheel")return {D:"Dark",L:"light",S:"Stern"}[b]||"?";
   return {K:"Kopf",Z:"Zahl"}[b]||"?";
 }
+var GAMES={dice:"Farbwürfel",wheel:"Glücksrad",coin:"Münzwurf",duel:"1 gegen 1"};
 function feedHtml(){
   if(!st.feed.length)return '<p class="muted">Noch keine Spiele gespielt.</p>';
-  var GL={dice:"Farbwürfel",wheel:"Glücksrad",coin:"Münzwurf"};
+  var GL=GAMES;
   return st.feed.map(function(f){
     var net=f.payout-f.stake,cls=net>0?"win":(net===0?"even":"loss");
     var t=new Date(f.created_at).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
     return '<div class="feed-i"><span><b>'+esc(st.names[f.user_id]||"Spieler")+'</b> · '+esc(GL[f.game]||f.game)+' ('+esc(betLabel(f.game,f.bet))+') · Einsatz '+f.stake+'<br><span class="muted">'+t+' Uhr</span></span><span class="'+cls+'">'+(net>0?"+"+net:(net===0?"±0":net))+'</span></div>';
   }).join("");
+}
+
+function countColor(d,c){var n=0;(d||[]).forEach(function(x){if(x===c)n++});return n}
+function chip(c){return '<span class="chip" style="background:'+COLORS[c][1]+'">'+COLORS[c][0]+'</span>'}
+function miniDice(d,ca,cb){
+  return (d||[]).map(function(x){return '<span class="md'+(x===ca?' hit':(x===cb?' hit2':''))+'" style="background:'+COLORS[x][1]+'"></span>'}).join("");
+}
+function duelMarks(r){var m={};m[r.creator_color]="hit";m[r.joiner_color]="hit2";return m}
+function duelResText(r){
+  if(!r)return "";
+  var a=st.names[r.creator_id]||"Spieler",b=st.names[r.joiner_id]||"Spieler";
+  var ka=countColor(r.dice,r.creator_color),kb=countColor(r.dice,r.joiner_color);
+  var w=r.winner_id===r.creator_id?a:b;
+  var s=a+" ("+COLORS[r.creator_color][0]+" ×"+ka+") gegen "+b+" ("+COLORS[r.joiner_color][0]+" ×"+kb+"): "+w+" gewinnt "+(r.stake*2)+" Punkte";
+  if(r.rounds>1)s+=" · nach "+r.rounds+" Würfen";
+  return s;
+}
+function outcome(net,payout,stake,delayMs){
+  setTimeout(function(){SFX.play(net>0?"win":(net===0?"even":"lose"),payout>=stake*3)},delayMs||300);
+}
+function notifyDuel(x){
+  var won=x.winner_id===st.user.id,opp=st.names[x.joiner_id]||"Ein Spieler";
+  st.duelRes={creator_id:x.creator_id,creator_color:x.creator_color,joiner_id:x.joiner_id,joiner_color:x.joiner_color,dice:x.dice,rounds:x.rounds,winner_id:x.winner_id,stake:x.stake};
+  st.duelMsg="";st.landed=true;
+  st.toast="⚔️ "+opp+" ist deiner Herausforderung beigetreten: "+(won?"Du hast gewonnen! +"+x.stake:"Du hast verloren. −"+x.stake)+" Punkte";
+  st.toastUntil=Date.now()+20000;
+  SFX.play("ding");
+  setTimeout(function(){SFX.play(won?"win":"lose")},550);
+}
+function toastHtml(){
+  if(st.toast&&Date.now()<st.toastUntil)return '<div class="toast" data-act="toastclose">'+esc(st.toast)+' <span class="muted">(antippen zum Schließen)</span></div>';
+  return "";
+}
+
+function duelHtml(me,canPlay,mx){
+  var h='<p class="muted" style="margin:8px 0 0">Wähle deine Farbe und deinen Einsatz und erstelle eine Herausforderung. Ein anderer Spieler tritt mit einer anderen Farbe bei. Wessen Farbe öfter fällt, gewinnt den ganzen Pott. Bei Gleichstand wird automatisch neu gewürfelt.</p>';
+  h+='<div class="picker">'+COLORS.map(function(c,i){return '<button class="pc'+(i===st.dpick?' sel':'')+'" data-act="pd" data-v="'+i+'" style="background:'+c[1]+'">'+c[0]+'</button>'}).join("")+'</div>';
+  h+=stakeRow(mx);
+  var mine=st.ch.find(function(c){return c.status==="open"&&c.creator_id===me.id});
+  if(mine){
+    h+='<p class="msg">⏳ Deine Herausforderung wartet auf einen Gegner: '+chip(mine.creator_color)+' · Einsatz '+mine.stake+'</p><button data-act="dcancel" data-v="'+mine.id+'">Abbrechen (Einsatz zurück)</button>';
+  }else{
+    h+='<div style="margin-top:12px"><button data-act="dcreate"'+(canPlay?'':' disabled')+'>⚔️ Herausforderung erstellen</button></div>';
+  }
+  var r=st.duelRes;
+  h+=diceHtml(r?r.dice:null,false,r?duelMarks(r):null);
+  h+='<div class="msg">'+esc(st.duelMsg||duelResText(r))+'</div>';
+  if(r)h+='<p class="muted" style="margin:0">Weißer Rahmen: Farbe von '+esc(st.names[r.creator_id]||"Spieler")+' ('+COLORS[r.creator_color][0]+') · goldener Rahmen: Farbe von '+esc(st.names[r.joiner_id]||"Spieler")+' ('+COLORS[r.joiner_color][0]+')</p>';
+  h+='</div>';
+
+  var open=st.ch.filter(function(c){return c.status==="open"&&c.creator_id!==me.id});
+  h+='<div class="card"><h2>⚔️ Offene Herausforderungen</h2>';
+  if(!open.length)h+='<p class="muted">Gerade sucht niemand einen Gegner. Erstelle selbst eine Herausforderung!</p>';
+  else{
+    open.forEach(function(c){
+      var dis=!canPlay||c.creator_color===st.dpick||c.stake>me.balance;
+      h+='<div class="duel-i"><span><b>'+esc(st.names[c.creator_id]||"Spieler")+'</b> '+chip(c.creator_color)+' · Einsatz '+c.stake+'</span><button class="tab" data-act="djoin" data-v="'+c.id+'"'+(dis?' disabled':'')+'>Beitreten mit '+COLORS[st.dpick][0]+'</button></div>';
+    });
+    h+='<div style="margin-top:10px"><button data-act="djoinr"'+(canPlay?'':' disabled')+'>🎲 Zufällig beitreten</button></div>';
+  }
+  h+='<p class="muted">Du trittst mit der oben gewählten Farbe bei (sie muss sich von der Farbe deines Gegners unterscheiden). Der Einsatz ist der des Erstellers.</p></div>';
+
+  var done=st.ch.filter(function(c){return c.status==="done"}).slice(0,8);
+  h+='<div class="card"><h2>Letzte Duelle</h2>';
+  if(!done.length)h+='<p class="muted">Noch keine Duelle gespielt.</p>';
+  done.forEach(function(c){
+    var w=c.winner_id===c.creator_id?c.creator_id:c.joiner_id;
+    h+='<div class="duel-i"><span><b>'+esc(st.names[c.creator_id]||"Spieler")+'</b> '+chip(c.creator_color)+' gegen <b>'+esc(st.names[c.joiner_id]||"Spieler")+'</b> '+chip(c.joiner_color)+'<br>'+miniDice(c.dice,c.creator_color,c.joiner_color)+'<span class="muted">'+(c.rounds>1?c.rounds+' Würfe · ':'')+'Sieger: '+esc(st.names[w]||"Spieler")+'</span></span><span class="win">+'+c.stake+'</span></div>';
+  });
+  return h+'</div>';
+}
+
+function menuHtml(){
+  var h='<div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">👤 Mein Menü</h2><button class="tab off" data-act="menu">'+(st.menuOpen?'Schließen':'Öffnen')+'</button></div>';
+  if(!st.menuOpen)return h+'<p class="muted" style="margin:8px 0 0">Deine persönliche Statistik und deine Spiele-Logs. Nur du siehst sie hier.</p></div>';
+  var order=["dice","wheel","coin","duel"],byG={};
+  st.stats.forEach(function(x){byG[x.game]=x});
+  var tn=0,tw=0,tp=0;
+  var rows=order.filter(function(g){return byG[g]}).map(function(g){
+    var x=byG[g],net=x.paid-x.wagered;tn+=+x.n;tw+=+x.wagered;tp+=+x.paid;
+    return '<tr><td>'+GAMES[g]+'</td><td class="n">'+x.n+'</td><td class="n">'+fmt(x.wagered)+'</td><td class="n">'+fmt(x.paid)+'</td><td class="n '+(net>0?'win':(net<0?'loss':'even'))+'">'+(net>0?'+':'')+fmt(net)+'</td></tr>';
+  }).join("");
+  h+='<h2 style="margin:14px 0 6px">Statistik pro Modus</h2>';
+  if(!rows)h+='<p class="muted">Du hast noch nicht gespielt.</p>';
+  else{
+    var tnet=tp-tw;
+    h+='<table class="stt"><tr><th>Modus</th><th>Spiele</th><th>Gesetzt</th><th>Ausgezahlt</th><th>Bilanz</th></tr>'+rows+'<tr class="sum"><td>Gesamt</td><td class="n">'+tn+'</td><td class="n">'+fmt(tw)+'</td><td class="n">'+fmt(tp)+'</td><td class="n '+(tnet>0?'win':(tnet<0?'loss':'even'))+'">'+(tnet>0?'+':'')+fmt(tnet)+'</td></tr></table>';
+  }
+  h+='<h2 style="margin:14px 0 6px">Meine letzten Spiele</h2>';
+  if(!st.mylog.length)h+='<p class="muted">Noch keine Spiele.</p>';
+  else h+=st.mylog.map(function(f){
+    var net=f.payout-f.stake,cls=net>0?"win":(net===0?"even":"loss");
+    var t=new Date(f.created_at).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+    return '<div class="feed-i"><span><b>'+esc(GAMES[f.game]||f.game)+'</b> ('+esc(betLabel(f.game,f.bet))+') · Einsatz '+fmt(f.stake)+'<br><span class="muted">'+t+' Uhr</span></span><span class="'+cls+'">'+(net>0?"+"+fmt(net):(net===0?"±0":fmt(net)))+'</span></div>';
+  }).join("");
+  return h+'</div>';
 }
 
 function stakeRow(mx){
@@ -177,11 +396,11 @@ function render(){
   var b=me.balance,canPlay=b>=MINS&&!me.banned;
   var mx=Math.min(MAXS,b);if(st.stake>mx)st.stake=mx;if(st.stake<MINS)st.stake=MINS;
 
-  var h='<div class="card"><div class="row" style="justify-content:space-between"><span class="muted">Angemeldet als <b>'+esc(me.name)+'</b></span><button class="tab off" data-act="logout">Abmelden</button></div>';
+  var h=toastHtml()+'<div class="card"><div class="row" style="justify-content:space-between"><span class="muted">Angemeldet als <b>'+esc(me.name)+'</b></span><span><button class="tab off ibtn" data-act="mute" title="Ton an/aus">'+(SFX.isMuted()?"🔇":"🔊")+'</button> <button class="tab off" data-act="logout">Abmelden</button></span></div>';
   h+='<div class="muted" style="margin-top:8px">Dein Punktestand</div><div class="bal">'+b+'</div>';
   if(me.banned)h+='<p class="msg">Du wurdest gesperrt.</p>';
   else if(b<MINS)h+='<p class="muted">Zum Spielen brauchst du mindestens '+MINS+' Punkte. Bitte einen Admin um Punkte.</p>';
-  h+='<div class="row" style="margin:10px 0 4px"><button class="tab'+(st.game==="dice"?'':' off')+'" data-act="tab" data-v="dice">🎲 Farbwürfel</button><button class="tab'+(st.game==="wheel"?'':' off')+'" data-act="tab" data-v="wheel">🎡 Glücksrad</button><button class="tab'+(st.game==="coin"?'':' off')+'" data-act="tab" data-v="coin">🪙 Münzwurf</button></div>';
+  h+='<div class="row" style="margin:10px 0 4px"><button class="tab'+(st.game==="dice"?'':' off')+'" data-act="tab" data-v="dice">🎲 Farbwürfel</button><button class="tab'+(st.game==="wheel"?'':' off')+'" data-act="tab" data-v="wheel">🎡 Glücksrad</button><button class="tab'+(st.game==="coin"?'':' off')+'" data-act="tab" data-v="coin">🪙 Münzwurf</button><button class="tab'+(st.game==="duel"?'':' off')+'" data-act="tab" data-v="duel">⚔️ 1 gegen 1</button></div>';
 
   if(st.game==="dice"){
     h+='<div class="picker">'+COLORS.map(function(c,i){return '<button class="pc'+(i===st.pick?' sel':'')+'" data-act="pc" data-v="'+i+'" style="background:'+c[1]+'">'+c[0]+'</button>'}).join("")+'</div>';
@@ -191,11 +410,14 @@ function render(){
     h+='<div class="picker"><button class="pc'+(st.wpick==="D"?' sel':'')+'" data-act="pw" data-v="D" style="background:#111;font-size:1rem">Dark</button><button class="pc'+(st.wpick==="L"?' sel':'')+'" data-act="pw" data-v="L" style="background:#f4f4f4;color:#111;font-size:1rem;border-color:'+(st.wpick==="L"?'var(--text)':'#bbb')+'">light</button><button class="pc'+(st.wpick==="S"?' sel':'')+'" data-act="pw" data-v="S" style="background:#111;color:#ffd54a;font-size:1rem">★ Stern (×3)</button></div>';
     h+=stakeRow(mx);
     h+=wheelHtml()+'<div class="msg">'+esc(st.wmsg)+'</div><button data-act="spin"'+(canPlay?'':' disabled')+'>Drehen auf '+(st.wpick==="D"?'Dark':(st.wpick==="L"?'light':'Stern'))+'</button></div>';
-  }else{
+  }else if(st.game==="coin"){
     h+='<div class="picker"><button class="pc'+(st.cpick==="K"?' sel':'')+'" data-act="pk" data-v="K" style="background:#c98a00;font-size:1rem">Kopf</button><button class="pc'+(st.cpick==="Z"?' sel':'')+'" data-act="pk" data-v="Z" style="background:#5b6492;font-size:1rem">Zahl</button></div>';
     h+=stakeRow(mx);
     h+=coinHtml()+'<div class="msg">'+esc(st.cmsg)+'</div><button data-act="coin"'+(canPlay?'':' disabled')+'>Münze werfen auf '+(st.cpick==="K"?'Kopf':'Zahl')+'</button></div>';
+  }else{
+    h+=duelHtml(me,canPlay,mx);
   }
+  h+=menuHtml();
   h+='<div class="card"><h2>📡 Live-Feed</h2>'+feedHtml()+'</div>';
 
   var top=st.list.filter(function(p){return !p.banned}).slice(0,50);
@@ -231,7 +453,16 @@ app.addEventListener("click",function(e){
   else if(a==="give")give();
   else if(a==="admin")toggleAdmin();
   else if(a==="ban")toggleBan();
+  else if(a==="pd"){st.dpick=+v;render()}
+  else if(a==="dcreate")duelCreate();
+  else if(a==="dcancel")duelCancel(+v);
+  else if(a==="djoin")duelJoin(+v,false);
+  else if(a==="djoinr")duelJoin(null,true);
+  else if(a==="menu")toggleMenu();
+  else if(a==="mute"){SFX.setMuted(!SFX.isMuted());SFX.unlock();render()}
+  else if(a==="toastclose"){st.toastUntil=0;render()}
 });
+document.addEventListener("click",function(){SFX.unlock()});
 app.addEventListener("input",function(e){
   var t=e.target;
   if(t.id==="stake")st.stake=parseInt(t.value)||MINS;
@@ -254,7 +485,7 @@ async function roll(){
   if(st.rolling||!st.me)return;
   var bad=checkStake();if(bad){st.msg=bad;render();return}
   var stake=st.stake,pk=st.pick;
-  st.rolling=true;
+  st.rolling=true;SFX.play("dice");
   var btn=document.querySelector('[data-act="roll"]');if(btn)btn.disabled=true;
   var box=document.querySelector(".dice");
   var iv=setInterval(function(){
@@ -266,7 +497,7 @@ async function roll(){
   var r=out[0];
   if(r.error){st.msg=r.error.message}
   else{
-    var d=r.data;st.dice=d.dice;st.lastPick=pk;st.landed=true;var net=d.payout-stake;
+    var d=r.data;st.dice=d.dice;st.lastPick=pk;st.landed=true;var net=d.payout-stake;SFX.play("land");outcome(net,d.payout,stake,420);
     st.msg=COLORS[pk][0]+" kam "+d.k+"× – "+(d.k===1?"doppelter Einsatz zurück!":(d.k===2?"Einsatz zurück":"verloren"))+" ("+(net>=0?"+":"")+net+" Punkte)";
   }
   st.rolling=false;await load();render();
@@ -282,11 +513,11 @@ async function spin(){
   if(r.error){st.wmsg=r.error.message;st.rolling=false;render();return}
   var idx=r.data.idx,sg=360/7,off=(Math.random()-.5)*.7*sg;
   var base=(((-(idx+.5)*sg+off)%360)+360)%360,cur0=((st.wrot%360)+360)%360,delta=(((base-cur0)%360)+360)%360;
-  st.wrot+=1800+delta;
+  st.wrot+=1800+delta;SFX.play("wheel",Math.round((1800+delta)/(360/7)));
   var svg=document.getElementById("wheelsvg");
   if(svg){svg.style.transition="transform 4.5s cubic-bezier(.12,.6,.1,1)";svg.getBoundingClientRect();svg.style.transform="rotate("+st.wrot+"deg)"}
   await delay(4700);
-  var t=SEGS[idx],net=r.data.payout-stake;
+  var t=SEGS[idx],net=r.data.payout-stake;outcome(net,r.data.payout,stake,100);
   st.wmsg=(t==="S"?"Stern – "+(pk==="S"?"gewonnen, dreifacher Einsatz!":"verloren"):(t==="D"?"Dark":"light")+" – "+(t===pk?"gewonnen!":"verloren"))+" ("+(net>=0?"+":"")+net+" Punkte)";
   st.rolling=false;await load();render();
 }
@@ -300,13 +531,56 @@ async function coin(){
   var r=await sb.rpc("play_coin",{p_side:pk,p_stake:stake});
   if(r.error){st.cmsg=r.error.message;st.rolling=false;render();return}
   var target=r.data.result==="K"?0:180,cur0=((st.crot%360)+360)%360,delta=(((target-cur0)%360)+360)%360;
-  st.crot+=1440+delta;
+  st.crot+=1440+delta;SFX.play("coin");
   var el=document.getElementById("coin");
   if(el){el.style.transition="transform 1.8s cubic-bezier(.2,.7,.2,1)";el.getBoundingClientRect();el.style.transform="rotateY("+st.crot+"deg)"}
   await delay(2000);
-  var won=r.data.result===pk,net=r.data.payout-stake;
+  var won=r.data.result===pk,net=r.data.payout-stake;SFX.play("coinland");outcome(net,r.data.payout,stake,450);
   st.cmsg=(r.data.result==="K"?"Kopf":"Zahl")+" – "+(won?"gewonnen!":"verloren")+" ("+(net>=0?"+":"")+net+" Punkte)";
   st.rolling=false;await load();render();
+}
+
+async function duelCreate(){
+  if(st.rolling||!st.me)return;
+  var bad=checkStake();if(bad){st.duelMsg=bad;render();return}
+  var r=await sb.rpc("create_challenge",{p_color:st.dpick,p_stake:st.stake});
+  if(r.error){st.duelMsg=r.error.message}
+  else{st.duelMsg="Herausforderung erstellt. Du wirst benachrichtigt, sobald jemand beitritt.";SFX.play("ding")}
+  await load();render();
+}
+async function duelCancel(id){
+  if(st.rolling)return;
+  var r=await sb.rpc("cancel_challenge",{p_id:id});
+  st.duelMsg=r.error?r.error.message:"Herausforderung abgebrochen. Dein Einsatz ist zurück.";
+  await load();render();
+}
+async function duelJoin(id,random){
+  if(st.rolling||!st.me)return;
+  var color=st.dpick;
+  st.rolling=true;st.duelMsg="";SFX.play("dice");
+  var box=document.querySelector(".dice");
+  var iv=setInterval(function(){
+    var v=[0,1,2,3].map(function(){return Math.floor(Math.random()*7)});
+    if(box){box.outerHTML=diceHtml(v,true);box=document.querySelector(".dice")}
+  },170);
+  var call=random?sb.rpc("join_random",{p_color:color}):sb.rpc("join_challenge",{p_id:id,p_color:color});
+  var out=await Promise.all([call,delay(1700)]);
+  clearInterval(iv);
+  var r=out[0];
+  if(r.error){st.duelMsg=r.error.message;SFX.play("lose")}
+  else if(r.data&&r.data.cancelled){st.duelMsg="Diese Herausforderung war nicht mehr verfügbar. Es wurde dir nichts abgezogen."}
+  else{
+    var d=r.data,won=d.winner_id===st.user.id;
+    st.duelRes=d;st.landed=true;
+    st.duelMsg=duelResText(d)+" · "+(won?"Du gewinnst +"+d.stake:"Du verlierst −"+d.stake)+" Punkte";
+    SFX.play("land");outcome(won?1:-1,won?d.pot:0,d.stake,420);
+  }
+  st.rolling=false;await load();render();
+}
+async function toggleMenu(){
+  st.menuOpen=!st.menuOpen;
+  if(st.menuOpen)await load();
+  render();
 }
 
 async function adminCall(fn,args){
@@ -322,7 +596,7 @@ function toggleBan(){var s=selected();if(s)adminCall("set_banned",{p_target:s.id
 sb.auth.onAuthStateChange(function(ev,session){
   st.user=session?session.user:null;
   setTimeout(async function(){
-    if(st.user)await load();else{st.me=null;st.list=[];st.feed=[];loadCount()}
+    if(st.user)await load();else{st.me=null;st.list=[];st.feed=[];st.ch=[];st.seen={};st.seenInit=false;st.duelRes=null;st.menuOpen=false;loadCount()}
     render();
   },0);
 });
