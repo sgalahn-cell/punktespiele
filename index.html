@@ -191,7 +191,7 @@ function limTxt(){return MINS+' bis '+MAXS}
 function setLim(mn,mx){MINS=+mn;MAXS=+mx;Array.prototype.forEach.call(document.querySelectorAll('.lim'),function(e){e.textContent=limTxt()})}
 document.getElementById("legend").innerHTML=COLORS.map(function(c){return '<span><span class="dot" style="background:'+c[1]+'"></span>'+c[0]+'</span>'}).join("");
 
-var st={lastPick:null,landed:false,user:null,me:null,list:[],feed:[],names:{},err:"",cpick:"K",crot:0,cmsg:"",game:"dice",pick:0,wpick:"D",stake:500,msg:"",wmsg:"",dice:null,wrot:0,rolling:false,duelMsg:"",duelRes:null,dpick:0,ch:[],seen:{},seenInit:false,toast:"",toastUntil:0,menuOpen:false,stats:[],mylog:[],lastExpire:0,osearch:"",osel:null,oamt:100,lminIn:null,lmaxIn:null,limUpd:null};
+var st={lastPick:null,landed:false,user:null,me:null,list:[],feed:[],names:{},err:"",cpick:"K",crot:0,cmsg:"",game:"dice",pick:0,wpick:"D",stake:500,msg:"",wmsg:"",dice:null,wrot:0,rolling:false,duelMsg:"",duelRes:null,dpick:0,ch:[],seen:{},seenInit:false,toast:"",toastUntil:0,menuOpen:false,stats:[],mylog:[],lastExpire:0,osearch:"",osel:null,oamt:100,lminIn:null,lmaxIn:null,limUpd:null,alog:[],alogAll:false};
 
 function shade(h,f){var n=parseInt(h.slice(1),16),r=n>>16,g=(n>>8)&255,b=n&255;return "rgb("+Math.round(r*f)+","+Math.round(g*f)+","+Math.round(b*f)+")"}
 function diceHtml(v,roll,marks){return '<div class="dice">'+[0,1,2,3].map(function(i){
@@ -256,6 +256,10 @@ async function load(){
   st.names={};r.data.forEach(function(p){st.names[p.id]=p.name});
   st.me=r.data.find(function(p){return p.id===st.user.id})||null;
   if(!f.error)st.feed=f.data;
+  if(st.me&&st.me.is_owner&&!st.me.banned){
+    var al=await sb.from("admin_log").select("id,actor_name,action,target_name,detail,created_at").order("created_at",{ascending:false}).limit(st.alogAll?500:5);
+    if(!al.error)st.alog=al.data||[];
+  }else st.alog=[];
   var op=rr[2],dn=rr[3];
   if(!op.error&&!dn.error){
     st.ch=op.data.concat(dn.data);
@@ -280,6 +284,25 @@ function betLabel(g,b){
   return {K:"Kopf",Z:"Zahl"}[b]||"?";
 }
 var GAMES={dice:"Farbwürfel",wheel:"Glücksrad",coin:"Münzwurf",duel:"1 gegen 1"};
+function logLine(l){
+  var a='<b>'+esc(l.actor_name)+'</b>',t='<b>'+esc(l.target_name||"Spieler")+'</b>',d=l.detail;
+  if(l.action==="give"){var n=parseInt(d);return a+(n<0?' zog '+t+' <b class="loss">'+fmt(-n)+'</b> Punkte ab':' gab '+t+' <b class="win">+'+fmt(n)+'</b> Punkte')}
+  if(l.action==="ban")return a+' sperrte '+t;
+  if(l.action==="unban")return a+' entsperrte '+t;
+  if(l.action==="admin_on")return a+' machte '+t+' zum Admin';
+  if(l.action==="admin_off")return a+' entzog '+t+' die Admin-Rechte';
+  if(l.action==="limits"){var m=String(d||"").match(/^(\d+)-(\d+)>(\d+)-(\d+)$/);return a+' änderte die Einsatz-Grenzen'+(m?': <span class="muted">'+fmt(m[1])+' bis '+fmt(m[2])+'</span> → <b>'+fmt(m[3])+' bis '+fmt(m[4])+'</b>':'')}
+  return a+' '+esc(l.action);
+}
+function logHtml(){
+  var h='<div class="card"><h2>🔒 Admin-Log <span class="tag">nur Besitzer</span></h2>';
+  if(!st.alog.length)return h+'<p class="muted">Noch nichts passiert.</p></div>';
+  var btn='<div style="margin-top:10px"><button class="tab off" data-act="alog">'+(st.alogAll?'Nur die letzten 5 zeigen':'Alle Logs anzeigen')+'</button></div>';
+  return h+'<div'+(st.alogAll?' style="max-height:480px;overflow:auto"':'')+'>'+st.alog.map(function(l){
+    var d=new Date(l.created_at),ts=d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})+" "+d.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+    return '<div class="feed-i"><span>'+logLine(l)+'<br><span class="muted">'+ts+' Uhr</span></span></div>';
+  }).join("")+'</div>'+btn+'</div>';
+}
 function feedHtml(){
   if(!st.feed.length)return '<p class="muted">Noch keine Spiele gespielt.</p>';
   var GL=GAMES;
@@ -442,6 +465,7 @@ function render(){
     if(me.is_owner)h+='<button class="tab off" data-act="admin"'+(sel&&!sel.is_owner?'':' disabled')+'>'+(sel&&sel.is_admin?'Admin entfernen':'Zum Admin machen')+'</button>';
     h+='<button class="tab off" data-act="ban"'+(sel&&!sel.is_owner&&sel.id!==me.id&&(!sel.is_admin||me.is_owner)?'':' disabled')+'>'+(sel&&sel.banned?'Entsperren':'Sperren')+'</button></div></div>';
   }
+  if(me.is_owner&&!me.banned)h+=logHtml();
   if(st.err)h+='<p class="muted">'+esc(st.err)+'</p>';
   app.innerHTML=h;st.landed=false;
 }
@@ -463,6 +487,7 @@ app.addEventListener("click",function(e){
   else if(a==="admin")toggleAdmin();
   else if(a==="ban")toggleBan();
   else if(a==="limits")saveLimits();
+  else if(a==="alog"){st.alogAll=!st.alogAll;load().then(render)}
   else if(a==="pd"){st.dpick=+v;render()}
   else if(a==="dcreate")duelCreate();
   else if(a==="dcancel")duelCancel(+v);
