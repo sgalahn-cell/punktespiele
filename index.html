@@ -16,6 +16,17 @@ h1{font-size:1.7rem;margin:0 0 4px;background:linear-gradient(90deg,#ffd666,#ff8
 input{width:110px;padding:8px;border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.3);color:var(--text);font-size:1rem}
 button{padding:10px 16px;border:0;border-radius:10px;background:linear-gradient(180deg,#ffcf3d,#f5a300);color:#2a1a00;font-weight:700;font-size:1rem;cursor:pointer;box-shadow:0 2px 10px rgba(245,179,1,.35)}
 button:disabled{opacity:.5;cursor:default}
+.mgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:12px 0}
+.mcell{aspect-ratio:1.25;padding:0;font-size:1.5rem;border-radius:12px;background:linear-gradient(180deg,#4a50b8,#33388c);color:#fff;box-shadow:inset 0 2px 0 rgba(255,255,255,.25),0 3px 8px rgba(0,0,0,.4);transition:transform .12s}
+.mcell:hover:not(:disabled){transform:translateY(-2px);filter:brightness(1.15)}
+.mcell:disabled{opacity:1;cursor:default}
+.mcell.idle{opacity:.55}
+.mcell.safe{background:linear-gradient(180deg,#2f9e5f,#1d6b40);animation:mpop .25s ease-out}
+.mcell.bomb{background:linear-gradient(180deg,#d8453f,#932622);animation:mpop .25s ease-out}
+.mcell.ghost{background:linear-gradient(180deg,#5a3a45,#3a2530);opacity:.7}
+.mcell.dim{opacity:.4}
+@keyframes mpop{0%{transform:scale(.8)}60%{transform:scale(1.08)}100%{transform:scale(1)}}
+.mstat{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0 0}.mstat div{background:rgba(0,0,0,.25);border-radius:10px;padding:6px 10px}.mstat b{display:block;font-size:1.1rem}
 .tab{padding:8px 12px;font-size:.9rem}
 .tab.off{background:transparent;color:var(--text);border:1px solid var(--line);box-shadow:none;font-weight:400}
 .bal{font-size:2rem;font-weight:800}
@@ -80,7 +91,8 @@ td.n{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
 <p class="muted" style="margin-bottom:0"><b>Farbwürfel:</b> Wähle eine Farbe und setze <span class="lim">500 bis 2000</span> Punkte. Kommt deine Farbe 1× vor, bekommst du das Doppelte deines Einsatzes zurück. Bei 2× bekommst du deinen Einsatz zurück. Bei 0×, 3× oder 4× ist der Einsatz verloren.</p>
 <p class="muted" style="margin-bottom:0"><b>Glücksrad:</b> Wähle Dark oder light und setze <span class="lim">500 bis 2000</span> Punkte. Landet das Rad auf deiner Farbe, bekommst du das Doppelte deines Einsatzes. Bei der anderen Farbe oder beim Stern ★ ist der Einsatz verloren. Du kannst auch auf den Stern ★ setzen: Landet das Rad dort, bekommst du das Dreifache deines Einsatzes.</p>
 <p class="muted" style="margin-bottom:0"><b>Münzwurf:</b> Wähle Kopf oder Zahl und setze <span class="lim">500 bis 2000</span> Punkte. Trifft deine Seite (50 %), bekommst du das 1,9-fache deines Einsatzes zurück, sonst ist er verloren.</p>
-<p class="muted" style="margin-bottom:0"><b>1 gegen 1:</b> Du wählst eine Farbe und deinen Einsatz (<span class="lim">500 bis 2000</span>) und erstellst eine Herausforderung. Ein anderer Spieler tritt mit einer anderen Farbe bei und setzt denselben Einsatz. Dann wird mit 4 Würfeln gewürfelt: Wessen Farbe öfter fällt, gewinnt den ganzen Pott (doppelter Einsatz). Bei Gleichstand wird automatisch neu gewürfelt. Findet sich 15 Minuten lang kein Gegner, bekommst du deinen Einsatz zurück. Du kannst die Herausforderung auch selbst abbrechen.</p></div>
+<p class="muted" style="margin-bottom:0"><b>1 gegen 1:</b> Du wählst eine Farbe und deinen Einsatz (<span class="lim">500 bis 2000</span>) und erstellst eine Herausforderung. Ein anderer Spieler tritt mit einer anderen Farbe bei und setzt denselben Einsatz. Dann wird mit 4 Würfeln gewürfelt: Wessen Farbe öfter fällt, gewinnt den ganzen Pott (doppelter Einsatz). Bei Gleichstand wird automatisch neu gewürfelt. Findet sich 15 Minuten lang kein Gegner, bekommst du deinen Einsatz zurück. Du kannst die Herausforderung auch selbst abbrechen.</p>
+<p class="muted" style="margin-bottom:0"><b>Minen:</b> Wähle die Anzahl der Minen und deinen Einsatz. Auf dem 5×5-Feld deckst du Felder auf: Ein Diamant 💎 erhöht deinen Multiplikator, eine Bombe 💣 beendet das Spiel und der Einsatz ist weg. Du kannst jederzeit auszahlen und bekommst Einsatz × Multiplikator. Je mehr Minen, desto schneller steigt der Multiplikator, aber desto riskanter ist es. Deckst du alle Diamanten auf, wirst du automatisch ausgezahlt. Ein laufendes Spiel bleibt gespeichert, auch wenn du die Seite verlässt.</p></div>
 </main>
 <script>
 // Die Supabase-Daten stehen in der Datei config.js (siehe ANLEITUNG.md)
@@ -191,7 +203,7 @@ function limTxt(){return MINS+' bis '+MAXS}
 function setLim(mn,mx){MINS=+mn;MAXS=+mx;Array.prototype.forEach.call(document.querySelectorAll('.lim'),function(e){e.textContent=limTxt()})}
 document.getElementById("legend").innerHTML=COLORS.map(function(c){return '<span><span class="dot" style="background:'+c[1]+'"></span>'+c[0]+'</span>'}).join("");
 
-var st={lastPick:null,landed:false,user:null,me:null,list:[],feed:[],names:{},err:"",cpick:"K",crot:0,cmsg:"",game:"dice",pick:0,wpick:"D",stake:500,msg:"",wmsg:"",dice:null,wrot:0,rolling:false,duelMsg:"",duelRes:null,dpick:0,ch:[],seen:{},seenInit:false,toast:"",toastUntil:0,menuOpen:false,stats:[],mylog:[],lastExpire:0,osearch:"",osel:null,oamt:100,lminIn:null,lmaxIn:null,limUpd:null,alog:[],alogAll:false};
+var st={lastPick:null,landed:false,user:null,me:null,list:[],feed:[],names:{},err:"",cpick:"K",crot:0,cmsg:"",game:"dice",pick:0,wpick:"D",stake:500,msg:"",wmsg:"",dice:null,wrot:0,rolling:false,duelMsg:"",duelRes:null,dpick:0,ch:[],seen:{},seenInit:false,toast:"",toastUntil:0,menuOpen:false,stats:[],mylog:[],lastExpire:0,osearch:"",osel:null,oamt:100,lminIn:null,lmaxIn:null,limUpd:null,alog:[],alogAll:false,mines:null,minesLoaded:false,mn:3,mmsg:"",mbusy:false};
 
 function shade(h,f){var n=parseInt(h.slice(1),16),r=n>>16,g=(n>>8)&255,b=n&255;return "rgb("+Math.round(r*f)+","+Math.round(g*f)+","+Math.round(b*f)+")"}
 function diceHtml(v,roll,marks){return '<div class="dice">'+[0,1,2,3].map(function(i){
@@ -256,6 +268,7 @@ async function load(){
   st.names={};r.data.forEach(function(p){st.names[p.id]=p.name});
   st.me=r.data.find(function(p){return p.id===st.user.id})||null;
   if(!f.error)st.feed=f.data;
+  if(!st.minesLoaded){var ms=await sb.rpc("mines_state");if(!ms.error){st.mines=ms.data||null;st.minesLoaded=true}}
   if(st.me&&st.me.is_owner&&!st.me.banned){
     var al=await sb.from("admin_log").select("id,actor_name,action,target_name,detail,created_at").order("created_at",{ascending:false}).limit(st.alogAll?500:5);
     if(!al.error)st.alog=al.data||[];
@@ -281,9 +294,10 @@ function coinHtml(){
 function betLabel(g,b){
   if(g==="dice"||g==="duel")return COLORS[+b]?COLORS[+b][0]:"?";
   if(g==="wheel")return {D:"Dark",L:"light",S:"Stern"}[b]||"?";
+  if(g==="mines"){var p=String(b).split("|");return p[0]+" Minen, "+p[1]+" Diamanten"}
   return {K:"Kopf",Z:"Zahl"}[b]||"?";
 }
-var GAMES={dice:"Farbwürfel",wheel:"Glücksrad",coin:"Münzwurf",duel:"1 gegen 1"};
+var GAMES={dice:"Farbwürfel",wheel:"Glücksrad",coin:"Münzwurf",duel:"1 gegen 1",mines:"Minen"};
 function logLine(l){
   var a='<b>'+esc(l.actor_name)+'</b>',t='<b>'+esc(l.target_name||"Spieler")+'</b>',d=l.detail;
   if(l.action==="give"){var n=parseInt(d);return a+(n<0?' zog '+t+' <b class="loss">'+fmt(-n)+'</b> Punkte ab':' gab '+t+' <b class="win">+'+fmt(n)+'</b> Punkte')}
@@ -383,10 +397,37 @@ function duelHtml(me,canPlay,mx){
   return h+'</div>';
 }
 
+function minesHtml(me,canPlay,mx){
+  var g=st.mines,act=g&&g.status==="active",done=g&&!act,h="";
+  if(!act){
+    h+='<div class="muted" style="margin-top:10px">Anzahl Minen:</div><div class="picker">'+[1,3,5,10,15,24].map(function(n){return '<button class="pc'+(n===st.mn?' sel':'')+'" data-act="mn" data-v="'+n+'" style="background:#7a2e2a">'+n+'</button>'}).join("")+'</div>';
+    h+=stakeRow(mx);
+  }
+  var revealed=g?g.revealed:[],bombs=g&&g.bombs?g.bombs:[];
+  var cells="";
+  for(var i=0;i<25;i++){
+    var cls="mcell",txt="",dis=true;
+    if(g&&revealed.indexOf(i)>=0){cls+=" safe";txt="💎"}
+    else if(done&&bombs.indexOf(i)>=0){cls+=(g.status==="lost"&&g.cell===i)?" bomb":" ghost";txt="💣"}
+    else if(act){dis=false}
+    else if(done){cls+=" dim"}
+    else cls+=" idle";
+    cells+='<button class="'+cls+'" data-act="mcell" data-v="'+i+'"'+(dis||st.mbusy?' disabled':'')+'>'+txt+'</button>';
+  }
+  h+='<div class="mgrid">'+cells+'</div>';
+  if(act){
+    var pay=Math.floor(g.stake*Math.round(g.mult*10000)/10000);
+    h+='<div class="mstat"><div>Einsatz<b>'+fmt(g.stake)+'</b></div><div>Minen<b>'+g.mines+'</b></div><div>Diamanten<b>'+g.k+'</b></div><div>Multiplikator<b>×'+g.mult.toFixed(2)+'</b></div>'+(g.next_mult?'<div>Nächstes Feld<b>×'+g.next_mult.toFixed(2)+'</b></div>':'')+'</div>';
+    h+='<div class="msg">'+esc(st.mmsg||"Decke Felder auf. Eine Bombe beendet das Spiel.")+'</div><button data-act="mcash"'+(g.k<1||st.mbusy?' disabled':'')+'>Auszahlen'+(g.k>=1?' ('+fmt(pay)+' Punkte)':'')+'</button>';
+  }else{
+    h+='<div class="msg">'+esc(st.mmsg)+'</div><button data-act="mstart"'+(canPlay&&!st.mbusy?'':' disabled')+'>'+(done?'Neues Spiel starten':'Spiel starten')+' ('+st.mn+' Minen)</button>';
+  }
+  return h+'</div>';
+}
 function menuHtml(){
   var h='<div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">👤 Mein Menü</h2><button class="tab off" data-act="menu">'+(st.menuOpen?'Schließen':'Öffnen')+'</button></div>';
   if(!st.menuOpen)return h+'<p class="muted" style="margin:8px 0 0">Deine persönliche Statistik und deine Spiele-Logs. Nur du siehst sie hier.</p></div>';
-  var order=["dice","wheel","coin","duel"],byG={};
+  var order=["dice","wheel","coin","duel","mines"],byG={};
   st.stats.forEach(function(x){byG[x.game]=x});
   var tn=0,tw=0,tp=0;
   var rows=order.filter(function(g){return byG[g]}).map(function(g){
@@ -428,7 +469,7 @@ function render(){
   h+='<div class="muted" style="margin-top:8px">Dein Punktestand</div><div class="bal">'+b+'</div>';
   if(me.banned)h+='<p class="msg">Du wurdest gesperrt.</p>';
   else if(b<MINS)h+='<p class="muted">Zum Spielen brauchst du mindestens '+MINS+' Punkte. Bitte einen Admin um Punkte.</p>';
-  h+='<div class="row" style="margin:10px 0 4px"><button class="tab'+(st.game==="dice"?'':' off')+'" data-act="tab" data-v="dice">🎲 Farbwürfel</button><button class="tab'+(st.game==="wheel"?'':' off')+'" data-act="tab" data-v="wheel">🎡 Glücksrad</button><button class="tab'+(st.game==="coin"?'':' off')+'" data-act="tab" data-v="coin">🪙 Münzwurf</button><button class="tab'+(st.game==="duel"?'':' off')+'" data-act="tab" data-v="duel">⚔️ 1 gegen 1</button></div>';
+  h+='<div class="row" style="margin:10px 0 4px"><button class="tab'+(st.game==="dice"?'':' off')+'" data-act="tab" data-v="dice">🎲 Farbwürfel</button><button class="tab'+(st.game==="wheel"?'':' off')+'" data-act="tab" data-v="wheel">🎡 Glücksrad</button><button class="tab'+(st.game==="coin"?'':' off')+'" data-act="tab" data-v="coin">🪙 Münzwurf</button><button class="tab'+(st.game==="duel"?'':' off')+'" data-act="tab" data-v="duel">⚔️ 1 gegen 1</button><button class="tab'+(st.game==="mines"?'':' off')+'" data-act="tab" data-v="mines">💣 Minen</button></div>';
 
   if(st.game==="dice"){
     h+='<div class="picker">'+COLORS.map(function(c,i){return '<button class="pc'+(i===st.pick?' sel':'')+'" data-act="pc" data-v="'+i+'" style="background:'+c[1]+'">'+c[0]+'</button>'}).join("")+'</div>';
@@ -442,6 +483,8 @@ function render(){
     h+='<div class="picker"><button class="pc'+(st.cpick==="K"?' sel':'')+'" data-act="pk" data-v="K" style="background:#c98a00;font-size:1rem">Kopf</button><button class="pc'+(st.cpick==="Z"?' sel':'')+'" data-act="pk" data-v="Z" style="background:#5b6492;font-size:1rem">Zahl</button></div>';
     h+=stakeRow(mx);
     h+=coinHtml()+'<div class="msg">'+esc(st.cmsg)+'</div><button data-act="coin"'+(canPlay?'':' disabled')+'>Münze werfen auf '+(st.cpick==="K"?'Kopf':'Zahl')+'</button></div>';
+  }else if(st.game==="mines"){
+    h+=minesHtml(me,canPlay,mx);
   }else{
     h+=duelHtml(me,canPlay,mx);
   }
@@ -487,6 +530,10 @@ app.addEventListener("click",function(e){
   else if(a==="admin")toggleAdmin();
   else if(a==="ban")toggleBan();
   else if(a==="limits")saveLimits();
+  else if(a==="mn"){st.mn=+v;render()}
+  else if(a==="mstart")minesStart();
+  else if(a==="mcell")minesReveal(+v);
+  else if(a==="mcash")minesCash();
   else if(a==="alog"){st.alogAll=!st.alogAll;load().then(render)}
   else if(a==="pd"){st.dpick=+v;render()}
   else if(a==="dcreate")duelCreate();
@@ -627,6 +674,38 @@ async function adminCall(fn,args){
 }
 function selected(){return st.list.find(function(p){return p.id===st.osel})||null}
 function give(){var amt=parseInt(st.oamt);if(!st.osel||!amt)return;adminCall("give_points",{p_target:st.osel,p_amount:amt})}
+async function minesStart(){
+  if(st.mbusy||!st.me)return;
+  var bad=checkStake();if(bad){st.mmsg=bad;render();return}
+  st.mbusy=true;st.mmsg="";
+  var r=await sb.rpc("mines_start",{p_stake:st.stake,p_mines:st.mn});
+  st.mbusy=false;
+  if(r.error){st.mmsg=r.error.message;await load();render();return}
+  st.mines=r.data;SFX.play("ding");await load();render();
+}
+async function minesReveal(i){
+  if(st.mbusy||!st.mines||st.mines.status!=="active")return;
+  st.mbusy=true;
+  var r=await sb.rpc("mines_reveal",{p_cell:i});
+  st.mbusy=false;
+  if(r.error){st.mmsg=r.error.message;await load();render();return}
+  var d=r.data;st.mines=d;
+  if(d.status==="lost"){st.mmsg="💥 Bombe! Der Einsatz ist verloren (−"+fmt(d.stake)+" Punkte)";SFX.play("lose")}
+  else if(d.status==="cashed"){st.mmsg="🎉 Alle Diamanten gefunden! +"+fmt(d.payout-d.stake)+" Punkte";outcome(1,d.payout,d.stake,150)}
+  else{st.mmsg="";SFX.play("ding")}
+  await load();render();
+}
+async function minesCash(){
+  if(st.mbusy||!st.mines||st.mines.status!=="active")return;
+  st.mbusy=true;
+  var r=await sb.rpc("mines_cashout");
+  st.mbusy=false;
+  if(r.error){st.mmsg=r.error.message;await load();render();return}
+  var d=r.data,net=d.payout-d.stake;st.mines=d;
+  st.mmsg="Ausgezahlt: "+fmt(d.payout)+" Punkte ("+(net>=0?"+":"")+fmt(net)+")";
+  outcome(net,d.payout,d.stake,100);
+  await load();render();
+}
 async function saveLimits(){
   var mn=parseInt(st.lminIn!==null?st.lminIn:MINS),mx=parseInt(st.lmaxIn!==null?st.lmaxIn:MAXS);
   if(!(mn>=1)||!(mx>=mn)){alert("Bitte gültige Werte eingeben. Der Höchsteinsatz darf nicht kleiner als der Mindesteinsatz sein.");return}
